@@ -40,11 +40,23 @@ namespace GolfSimulation.Data
             ResolveAddressFrame();
 
             IsLoaded = true;
-            Debug.Log($"[PoseDataLoader] 로드 완료 — {Sequence.total_frames}프레임, {Sequence.fps}fps, 키포인트 {Sequence.keypoint_count}개");
-            Debug.Log($"[PoseDataLoader] Address frame: {AddressFrameIndex}, Events: {(Sequence.events != null ? "있음" : "없음")}, Fixes: {(Sequence.fixes_applied != null ? "있음" : "없음")}");
+            Debug.Log($"[PoseDataLoader] ========== 데이터 로드 완료 ==========");
+            Debug.Log($"[PoseDataLoader] 파일 경로: {path}");
+            Debug.Log($"[PoseDataLoader] 영상: {Sequence.video} | {Sequence.total_frames}프레임 | {Sequence.fps}fps | 키포인트 {Sequence.keypoint_count}개");
+            Debug.Log($"[PoseDataLoader] Address frame: {AddressFrameIndex} | Events: {(Sequence.events != null ? "있음" : "없음")}");
+
+            if (Sequence.frames.Count > 0)
+            {
+                var f0 = Sequence.frames[0];
+                if (f0.landmarks != null && f0.landmarks.Count > 0)
+                {
+                    var nose = f0.landmarks[0];
+                    Debug.Log($"[PoseDataLoader] Frame0 검증 — {nose.name}: ({nose.x:F4}, {nose.y:F4}, {nose.z:F4}) vis={nose.visibility:F3}");
+                }
+            }
 
             if (Sequence.fixes_applied != null)
-                Debug.Log($"[PoseDataLoader] Visibility threshold: {Sequence.fixes_applied.visibility_threshold}, 교체된 키포인트: {Sequence.fixes_applied.total_keypoints_replaced}");
+                Debug.Log($"[PoseDataLoader] Fixes: threshold={Sequence.fixes_applied.visibility_threshold}, 교체={Sequence.fixes_applied.total_keypoints_replaced}");
         }
 
         private void ResolveAddressFrame()

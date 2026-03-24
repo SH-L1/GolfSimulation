@@ -860,6 +860,38 @@ ApplyAimTwist(bone, aimTarget, rightTarget):
 
 ---
 
+## Review #7: 새 데이터 적용 시 동일 동작 재생 — 파일 경로 오류
+
+**증상**: golf_swing_pose.json을 교체했음에도 아바타가 항상 동일한 스윙을 수행. 여러 다른 영상 데이터를 적용해도 완전히 같은 동작.
+
+### 근본 원인
+
+JSON 파일이 **2개의 서로 다른 경로**에 존재:
+
+```
+GolfSimulation/
+├── GolfSimulation/                      ← Unity 프로젝트 루트
+│   ├── Assets/
+│   │   └── StreamingAssets/
+│   │       └── golf_swing_pose.json     ← Unity가 읽는 파일 (video "8", 114 frames)
+│   └── StreamingAssets/
+│       └── golf_swing_pose.json         ← 새 데이터 (video "9", 278 frames) — 무시됨
+```
+
+`Application.streamingAssetsPath` = `{프로젝트루트}/Assets/StreamingAssets/`
+→ 프로젝트 루트의 `StreamingAssets/`에 파일을 교체하면 Unity는 절대 읽지 않음.
+
+### 수정 내용
+
+1. **파일 교체 위치**: 반드시 `Assets/StreamingAssets/golf_swing_pose.json`에 복사
+2. **PoseDataLoader 진단 로그 강화**: 로드 시 파일 경로, 영상명, 프레임 수, Frame0 좌표값 출력 → 콘솔에서 어떤 데이터가 로드되었는지 즉시 확인 가능
+
+### 교훈
+
+Unity 프로젝트에서 `StreamingAssets`는 반드시 `Assets/` 하위에 위치해야 함. 프로젝트 루트에 동일 이름 폴더가 있으면 혼동 발생.
+
+---
+
 ## Phase 6 구현 완료: 정적 그립 포즈 및 클럽 부착
 
 ### 생성 파일
@@ -1114,3 +1146,200 @@ BoneMapper.ApplyPose(frame, loader, phase)
 2. **Animation Rigging의 한계**: `animator.enabled = false` 절차적 애니메이션에서는 Playable Graph 의존 패키지 사용 불가. 동일 기능을 순수 코드로 구현해야 한다.
 3. **동적 캡처 vs 사전 제작**: 미리 만든 애니메이션 대신 런타임 캡처 포즈를 사용하면, 다양한 입력 데이터에 자동 적응하면서도 구현 복잡도가 낮다.
 4. **T-Pose 오염 주의**: 초기화 시 FK를 임시 적용하면 다른 컴포넌트의 rest state 캐시가 오염될 수 있다. 반드시 백업→적용→복원 패턴 사용.
+
+---
+
+## Review #8: 포즈 데이터 이상값 — 시스템적 방어 아키텍처 설계 및 구현
+
+**보고 시점**: Phase 6 완료 후 / GolfSwingData 전체 데이터셋 분석
+**증상**:
+- 파일 9: 팔이 몸통을 관통하고 스윙 중간에 심한 좌표 팝핑 발생
+- 파일 8: 피니시 페이즈에서 오른손이 왼손에서 완전히 분리됨
+- 전체 데이터셋에 유사한 물리적 불가능 현상 및 추적 손실 산재
+
+---
+
+### 근본 원인 분석
+
+#### 분석 대상
+
+| 경로 | 내용 |
+|---|---|
+| `GolfSwingData/face_on/` | Face-on 뷰 JSON 파일 다수 |
+| `GolfSwingData/dtl/` | DTL(Down-The-Line) 뷰 JSON 파일 다수 |
+| `GolfSwingData/other/` | 기타 뷰 JSON 파일 |
+
+#### 데이터 수치 분석 결과
+
+| 파일 | 뷰 | 클리핑 비율 | 최대 손목 분리 | 점프 횟수 |
+|---|---|---|---|---|
+| 1003 | face_on | **50.5%** | 0.194 | 1 |
+| 1005 | face_on | **55.8%** | 0.308 | 5 |
+| 1008 | face_on | 41.8% | **30.16** ← 추적 완전 붕괴 | 43 |
+| 1011 | face_on | **62.5%** | 0.297 | 2 |
+| 1001 | dtl | 44.0% | **6.232** | 50 |
+| 1021 | dtl | 38.7% | **1.200** | 10 |
+
+#### 3가지 근본 원인
+
+**원인 1 — Z 깊이 추정 실패 (P1: 팔 몸통 관통)**
+
+2D → 3D 리프팅 모델(MediaPipe 계열)의 구조적 한계:
+- 단안(monocular) 카메라 기반이므로 깊이(Z) 추정 불확실성이 매우 높음
+- 팔과 몸통이 2D 이미지에서 겹칠 때(자기 차폐), 깊이 값을 구분하지 못함
+- 결과: face_on 뷰에서 팔의 Z ≈ 흉부 Z → 아바타 공간에서 팔이 몸통 안으로 들어감
+- **실측**: face_on 파일의 40~62% 프레임에서 `arm_z > chest_z` (팔이 흉부 뒤에 위치)
+
+**원인 2 — 3D 그립 분리 (P2: 손목 분리)**
+
+전처리 `step3: grip_constraint (tolerance=3%, 2D basis)`:
+- 2D(x, y) 기준 손목 거리만 제약 → Z축 분리는 방치
+- 추적 손실 시 Z값이 폭발적으로 증가 (파일 1008: max=30.16 units)
+- 결과: 3D 손목 거리가 수십 배 벌어져 오른팔이 완전히 분리됨
+
+**원인 3 — 신뢰도 급락 시 좌표 도약 (P3: 팝핑)**
+
+- 연속 프레임 간 관절 위치가 0.15 units 이상 이동: 물리적으로 불가능
+- 파일 1001: 50회 점프 (92 프레임 영상에서!)
+- 원인: visibility가 낮을 때 추정값이 안정화되지 않음
+
+---
+
+### 해결책: PoseCorrector 시스템
+
+#### 아키텍처
+
+```
+[JSON 로드] → [PoseCorrector.PreprocessSequence()]
+                    │
+                    ├─ Pass 1: 하드 클램프 (|값| > 1.5 → 이전 프레임 사용)
+                    ├─ Pass 2: 속도 게이트 (Δ > 0.18 → 속도 외삽 + blend)
+                    ├─ Pass 3: Z 깊이 강제 (face_on만: arm_z ≤ chest_z - 0.03)
+                    └─ Pass 4: 3D 그립 제약 (|lWrist - rWrist| ≤ 0.20)
+                    │
+               [메모리 내 인플레이스 수정 완료]
+                    │
+        [BoneMapper.Initialize()] → [재생 파이프라인]
+```
+
+**오프라인 배치 처리** 방식 선택 이유:
+1. 런타임 부담 없음 (로드 시 1회만 처리)
+2. 프레임 간 상태(이전 위치, 속도)를 순차적으로 올바르게 유지
+3. InterpolateFrames 및 OneEuroFilter가 이미 보정된 값을 사용하게 됨
+4. BoneMapper.Initialize(addressFrame)도 보정된 기준 프레임 사용
+
+#### 수정 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `Scripts/Correction/PoseCorrector.cs` | **신규** — 3단계 방어 시스템 |
+| `Scripts/Core/SwingPlayer.cs` | `Start()`에서 PoseCorrector 호출 추가 |
+
+#### PoseCorrector 파라미터
+
+| 파라미터 | 기본값 | 설명 |
+|---|---|---|
+| `minArmDepthOffset` | 0.03 | 팔이 흉부보다 이 값만큼 카메라 쪽에 있어야 함 |
+| `maxWristSeparation` | 0.20 | 3D 손목 간 최대 허용 거리 |
+| `elbowFollowWeight` | 0.35 | 손목 이동 시 팔꿈치 추종 비율 |
+| `maxJumpPerFrame` | 0.18 | 이 값 초과 시 점프로 판정 |
+| `hardClampThreshold` | 1.5 | 이 값 초과 시 즉시 이전 프레임으로 대체 |
+| `extrapolationBlend` | 0.15 | 점프 감지 시 외삽값과 현재값 블렌드 비율 |
+
+---
+
+### Unity 설정 체크리스트
+
+- [ ] SwingPlayer와 동일한 GameObject에 `PoseCorrector` 컴포넌트 추가
+- [ ] Inspector에서 `Enable Pose Correction = true` 확인
+- [ ] Console에서 `[PoseCorrector] 전처리 완료` 로그 확인
+- [ ] face_on 데이터: `깊이 보정` 횟수가 0보다 큰지 확인
+- [ ] 파일 1008/1001 등 심각한 파일: `하드 클램프` 횟수 확인
+
+### 핵심 교훈
+
+1. **Z 깊이는 신뢰할 수 없다**: 단안 pose estimation의 구조적 한계. 항상 물리 제약으로 보완해야 함.
+2. **2D 제약 ≠ 3D 제약**: 파이썬 전처리의 grip_constraint는 2D 기반이므로 3D Z 분리를 잡지 못함.
+3. **오프라인 전처리의 장점**: 런타임 보정보다 데이터 로드 시 1회 배치 처리가 InterpolateFrames와의 순서 문제를 해결하고 퍼포먼스 부담도 없음.
+4. **뷰 타입별 다른 제약**: face_on Z 제약은 DTL에 적용하면 안 됨. view_type 분기 필수.
+
+
+---
+
+## Review #9: PoseCorrector 깊이 클램핑 — 정상 데이터 파괴 버그
+
+**보고 시점**: PoseCorrector 적용 후 Unity 테스트
+**증상**: 팔꿈치가 뒤로 꺾임, 팔이 뒤로 꺾임, 왼팔/오른팔이 서로 헷갈린 것처럼 보임
+
+---
+
+### 근본 원인 분석
+
+#### 버그 1 — 너무 공격적인 임계값
+
+| 항목 | 내용 |
+|---|---|
+| **파일** | `PoseCorrector.cs` → `ApplyDepthClamping()` |
+| **이전 코드** | `depthLimit = chestZ - minArmDepthOffset` (minArmDepthOffset = 0.03) |
+| **문제** | chest_z = -0.085인 file 9에서 depthLimit = -0.115. 어깨보다 0.03 이상 앞에 있어야 한다는 조건인데, address에서 팔꿈치(-0.0752)와 손목(-0.0805)이 어깨(-0.0895)보다 살짝 뒤에 있는 것은 완전히 정상 포즈임에도 클램핑 대상으로 판정 |
+
+실제 file 9 address 프레임 분석:
+```
+chest_z = -0.085  →  depthLimit = -0.115 (이전)
+
+L_shoulder: z=-0.0895 (NOT clamped)
+L_elbow:    z=-0.0752 → clamped to -0.115  ← 정상값인데 수정됨!
+L_wrist:    z=-0.0805 → clamped to -0.115  ← 정상값인데 수정됨!
+```
+
+결과: file 9에서 **742회** 잘못된 보정 발생 (전체 ~1112 팔 관절 프레임의 67%)
+
+#### 버그 2 — 관절 독립 클램핑이 팔 구조 파괴
+
+```
+이전 로직:
+  elbow_z: -0.0752 → -0.115 (강제)
+  wrist_z: -0.0805 → -0.115 (강제)
+  결과: forearm 방향 z = wrist_z - elbow_z = -0.115 - (-0.115) = 0  ← 전완 방향 소멸!
+
+올바른 로직:
+  worstZ = max(elbow_z, wrist_z)
+  shift = worstZ - maxAllowed
+  elbow_z -= shift  (동일 이동)
+  wrist_z -= shift  (동일 이동)
+  결과: forearm 방향 z = PRESERVED  ✓
+```
+
+**팔꿈치가 뒤로 꺾인 원인**: elbow_z = wrist_z = -0.115 → 전완 방향 z = 0 → BoneMapper.ApplyLimb의 AimTwist가 z성분 없는 방향벡터로 잘못된 회전 계산.
+
+**왼팔/오른팔 혼동처럼 보인 원인**: 양팔의 팔꿈치/손목이 모두 동일 z값(-0.115)으로 강제 → 양팔 FK 회전이 비슷해짐 → 좌우 대칭처럼 보임.
+
+#### 버그 3 — 페이즈 비인식 (백스윙 중 오른팔 클램핑)
+
+이전 로직은 스윙 페이즈를 무시하고 항상 동일 조건 적용. 백스윙 탑에서 오른팔이 몸통 뒤로 가는 것(정상 포즈)을 클램핑해서 앞으로 강제.
+
+---
+
+### 해결책
+
+**깊이 클램핑 3단 개선**:
+
+| 항목 | 이전 | 이후 |
+|---|---|---|
+| 임계값 | `shoulder_z - 0.03` (어깨보다 0.03 앞 강제) | `shoulder_z + 0.20` (어깨보다 0.20 이상 뒤일 때만 수정) |
+| 적용 단위 | 관절 개별 클램핑 (relative z 파괴) | **팔 단위 uniform shift** (elbow+wrist 동일 이동) |
+| 페이즈 인식 | 없음 | 백스윙(top, mid_backswing): 오른팔 skip / 피니시(finish, mid_follow_through): 왼팔 skip |
+
+**새 로직 검증 결과**:
+```
+file 9 (face_on, 278프레임):
+  이전: 깊이 보정 742회 (잘못된 보정)
+  이후: 깊이 보정 0회  (정상 데이터이므로 수정 불필요) ✓
+```
+
+**핵심 교훈**:
+1. **임계값 설계 실수**: `chestZ - offset`은 "어깨보다 앞에 있어야 한다"는 강한 조건. 실제 데이터에서 팔꿈치가 어깨보다 살짝 뒤에 있는 것은 자연스러운 자세.
+2. **관절 독립 클램핑의 위험**: 두 관절을 같은 값으로 클램핑하면 relative z (방향벡터의 z성분)가 0이 되어 FK 회전 계산이 붕괴됨.
+3. **페이즈 인식의 중요성**: 백스윙에서 오른팔이 몸 뒤로 가는 것은 이상값이 아님. 물리적으로 맞는 포즈에 제약을 걸면 오히려 망가짐.
+4. **정상 파일로 먼저 검증**: 수정 전 python으로 실제 데이터에 시뮬레이션해서 오탐률 확인 필수.
+

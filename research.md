@@ -1023,3 +1023,96 @@ ApplyPose(frame, loader, phase)
 7. **그립 튜닝**: GripController Inspector에서 Curl 각도 + Curl Axis 조정
 8. **클럽 위치 튜닝**: ClubAttachment Inspector에서 positionOffset/rotationOffset 조정
 9. **클럽 모델 교체**: Inspector의 Club Model 필드에 외부 FBX 드래그 → 프로시저럴 자동 비활성화
+
+---
+
+## 섹션 15: PoseCorrector — 시스템적 데이터 방어 레이어
+
+### 15.1 문제 배경
+
+`GolfSwingData/` 디렉토리에 존재하는 face_on, dtl, other 세 개 폴더의 JSON 파일들은 모두 단안(monocular) 2D→3D 포즈 추정 모델로 추출되었기 때문에 구조적 이상값을 다수 포함한다.
+
+#### 데이터 수치 요약
+
+| 이상값 종류 | 실측 규모 | 예시 파일 |
+|---|---|---|
+| 팔 Z 깊이 실패 (몸통 관통) | face_on 40~62% 프레임 | 1011 (62.5%) |
+| 3D 손목 분리 (그립 붕괴) | 최대 30.16 units | 1008 (30.16), 1001 (6.23) |
+| 프레임 간 좌표 도약 | 파일당 0~50회 | 1001 (50회/92프레임) |
+
+### 15.2 좌표계 상세 (보정 로직 이해를 위해)
+
+```
+JSON 원시 데이터 (preprocessing 완료 후)
+  x: 수평 (양수 = 카메라 기준 오른쪽)
+  y: 수직 (flipped, 양수 = 위)  
+  z: 깊이 (양수 = 카메라에서 멀어짐, * 0.3 스케일)
+
+DataToAvatarSpace 변환 후
+  avatar_x = -data_x (좌우 반전)
+  avatar_y = data_y (동일)
+  avatar_z = -data_z (깊이 반전: 양수 = 카메라 방향 = 몸통 앞)
+
+face_on 클리핑 조건:
+  data.arm_z > data.chest_z → 팔이 흉부보다 카메라에서 멀다 → avatar 공간에서 팔이 몸통 뒤에 있음
+  수정: arm_z ≤ chest_z - minOffset (팔을 강제로 앞으로)
+```
+
+### 15.3 PoseCorrector 아키텍처
+
+```
+PreprocessSequence(PoseSequence, viewType)
+  │
+  ├── for each frame (순차):
+  │     ├── Pass 1: ApplyJumpRejection
+  │     │     ├── 하드 클램프: |x|,|y|,|z| > 1.5 → 이전 프레임 값 사용
+  │     │     └── 속도 게이트: Δ > 0.18 → 외삽 + 15% 블렌드
+  │     ├── Pass 2: ApplyDepthClamping (face_on only)
+  │     │     └── arm_z ≤ (lShoulder_z + rShoulder_z)/2 - 0.03
+  │     ├── Pass 3: ApplyGripConstraint
+  │     │     ├── |lWrist - rWrist| > 0.20 → rWrist = lWrist + dir * 0.20
+  │     │     └── rElbow 35% 추종 (shoulder→newWrist 방향)
+  │     └── UpdateVelocityState (이전 위치/속도 캐시 갱신)
+  │
+  └── Debug 통계 출력
+```
+
+**오프라인 배치 처리 선택 이유**:
+- 런타임 부담 없음 (로드 시 1회)
+- 프레임 간 상태(velocity)를 시간 순서대로 올바르게 유지
+- InterpolateFrames/OneEuroFilter가 이미 보정된 값 사용
+- BoneMapper.Initialize(addressFrame)도 보정된 기준 프레임 사용
+
+### 15.4 통합 방법
+
+`SwingPlayer.Start()`에서 `BoneMapper.Initialize()` 이전에 호출:
+
+```
+[PoseDataLoader.Awake] → 원시 JSON 로드
+[SwingPlayer.Start]
+  ├── PoseCorrector.PreprocessSequence(Sequence) ← 인플레이스 수정
+  ├── BoneMapper.Initialize(correctedAddressFrame)
+  └── 재생 시작
+```
+
+### 15.5 파라미터 튜닝 가이드
+
+| 파라미터 | 범위 | 기본값 | 언제 조정 |
+|---|---|---|---|
+| `minArmDepthOffset` | 0.01~0.15 | 0.03 | 팔이 여전히 관통 → 증가 / 팔 동작 과도하게 제한 → 감소 |
+| `maxWristSeparation` | 0.05~0.50 | 0.20 | 그립이 분리된 채 재생 → 감소 |
+| `elbowFollowWeight` | 0~1 | 0.35 | 팔꿈치가 부자연스럽게 꺾임 → 감소 |
+| `maxJumpPerFrame` | 0.05~0.60 | 0.18 | 점프 미탐지 → 감소 / 정상 동작 과도 억제 → 증가 |
+| `hardClampThreshold` | 0.5~10 | 1.5 | 파일 1008 같은 극단적 이상값 → 1.5 유지 |
+| `extrapolationBlend` | 0~0.5 | 0.15 | 점프 후 복귀가 너무 느림 → 증가 |
+
+### 15.6 뷰 타입별 차이
+
+| 뷰 타입 | 깊이 클램핑 | 그립 제약 | 점프 제거 |
+|---|---|---|---|
+| face_on | ✅ Z축 (팔이 흉부 앞) | ✅ 3D | ✅ |
+| dtl | ❌ (DTL에서 팔 Z 방향 다름) | ✅ 3D | ✅ |
+| other | ❌ | ✅ 3D | ✅ |
+
+DTL 깊이 클램핑은 면밀한 좌표계 분석 후 별도 구현 필요.
+

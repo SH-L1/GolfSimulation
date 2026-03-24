@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using GolfSimulation.Correction;
 using GolfSimulation.Data;
 using GolfSimulation.Filter;
 using UnityEngine;
@@ -25,6 +26,9 @@ namespace GolfSimulation.Core
         [SerializeField][Range(0.01f, 10f)] private float filterMinCutoff = 1.0f;
         [SerializeField][Range(0f, 1f)] private float filterBeta = 0.007f;
         [SerializeField][Range(0.1f, 5f)] private float filterDCutoff = 1.0f;
+
+        [Header("Pose Correction")]
+        [SerializeField] private bool enablePoseCorrection = true;
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
@@ -60,6 +64,15 @@ namespace GolfSimulation.Core
                 boneMapper = GetComponent<BoneMapper>();
 
             if (!ValidateReferences()) return;
+
+            if (enablePoseCorrection)
+            {
+                PoseCorrector corrector = GetComponent<PoseCorrector>();
+                if (corrector != null)
+                    corrector.PreprocessSequence(dataLoader.Sequence);
+                else
+                    Debug.LogWarning("[SwingPlayer] PoseCorrector 컴포넌트를 찾을 수 없습니다. 보정 없이 진행합니다.");
+            }
 
             PoseFrame referenceFrame = dataLoader.GetAddressFrame();
             if (referenceFrame == null)
