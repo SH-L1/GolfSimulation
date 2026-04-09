@@ -1,0 +1,6 @@
+# Android 빌드 결과물
+android/app/build/
+
+# Ruby / CocoaPods (루트 .gitignore의 /vendor/bundle/는 여기 미적용)
+vendor/bundle/
+coverage/
