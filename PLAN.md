@@ -317,7 +317,45 @@ Unity IK 솔버를 활용하여 말단(wrist, ankle) 기반의 정밀한 관절 
 
 ---
 
-## Phase 7: 최적화 및 모바일 빌드
+## Phase 7: 동작 품질 개선 — 팔 보호 + 하이브리드 블렌딩
+
+### 목표
+팔 비정상 꺾임, 마지막 동작 후 팔 드랍, face_on 자기가림 구간 불안정 동작을 수정하여
+실제 골프 스윙에 가까운 시각적 품질을 달성한다.
+
+> **근본 원인**: MediaPipe 단안 카메라 깊이 추정 오차 + face_on 자기가림(left arm)은
+> 코드로 완전 해결 불가. 이 Phase는 데이터 한계를 보완 전략으로 커버한다.
+
+### 작업 항목
+
+#### A. 해부학적 팔꿈치 각도 제약 (Anatomical Clamp)
+- [x] `BoneMapper`에 팔꿈치 과신전 방지 (`maxElbowAngle = 140°`)
+- [x] `ClampElbowAngle()` — 상완→전완 벡터 각도 초과 시 전완 회전 보정
+
+#### B. Visibility 기반 팔 포즈 고정 (Freeze-on-Low-Vis)
+- [x] 팔 visibility < `armFreezeVisThreshold` (기본 0.35) 구간에서 이전 프레임 포즈 유지
+- [x] `ApplyArmProtection()` — visibility 역비례 Slerp 고정 (저가시성 → 이전 포즈 비율 ↑)
+
+#### C. Finish Phase 시간 기반 Hold
+- [x] finish 이벤트 이후 `finishBlendTimer` 축적 → 시간이 지날수록 캡처 포즈 비율 증가
+- [x] visibility 가중치 + 시간 가중치 `max()` 조합 → 자연스러운 ease-in
+- [x] `finishHoldTime` 파라미터로 페이드-인 속도 조절
+
+#### D. 참조 애니메이션 블렌딩 (Mixamo AnimationClip 필요)
+- [ ] Mixamo에서 Y-Bot Golf Swing `AnimationClip` 다운로드 (`Assets/Animations/` 배치)
+- [ ] `ReferenceAnimationSampler.cs` — SwingNet 8이벤트 타임스탬프와 클립 시간 매핑
+- [ ] `HybridBlender.cs` — 키포인트 포즈 + 참조 애니메이션 본별 가중치 블렌딩
+- [ ] face_on 자기가림 구간(left arm vis < 0.4) 자동 감지 → 참조 비율 상승 적용
+
+### 산출물
+- `BoneMapper.cs` 수정 (A, B, C 통합)
+- `ReferenceAnimationSampler.cs` (D 구현 시)
+- `HybridBlender.cs` (D 구현 시)
+- 팔 꺾임 제거 + finish 구간 자연스러운 포즈 유지
+
+---
+
+## Phase 8: 최적화 및 모바일 빌드
 
 ### 목표
 모바일 환경에서 안정적으로 60fps를 유지하며, UaaL 통합 가능한 상태로 빌드한다.
@@ -365,7 +403,10 @@ Phase 2 (본 매핑·회전 변환) ◀── 핵심 마일스톤: 아바타가 
        Phase 6 (그립·클럽)
          │
          ▼
-       Phase 7 (최적화·모바일)
+       Phase 7 (동작 품질 개선)
+         │
+         ▼
+       Phase 8 (최적화·모바일)
 ```
 
 > **Phase 3, 4, 5는 병렬 진행 가능** — Phase 2 완료 후 독립적으로 작업할 수 있으며, 최종적으로 Phase 6에서 통합한다.
@@ -395,6 +436,9 @@ golf_swing_pose.json
   │
   ▼
 [Phase 6] 정적 그립 + 클럽 부착
+  │
+  ▼
+[Phase 7] 팔 보호 + 하이브리드 블렌딩
   │
   ▼
 Y-Bot 아바타 최종 렌더링

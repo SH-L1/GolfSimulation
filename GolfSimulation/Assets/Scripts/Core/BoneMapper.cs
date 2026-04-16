@@ -30,6 +30,12 @@ namespace GolfSimulation.Core
         [Header("Finish Blend")]
         [SerializeField] private bool enableFinishBlend = true;
         [SerializeField][Range(0.1f, 0.8f)] private float finishVisThreshold = 0.5f;
+        [SerializeField][Range(0.1f, 2f)] private float finishHoldTime = 0.5f;
+
+        [Header("Arm Protection")]
+        [SerializeField] private bool enableArmProtection = true;
+        [SerializeField][Range(0f, 0.6f)] private float armFreezeVisThreshold = 0.35f;
+        [SerializeField][Range(90f, 160f)] private float maxElbowAngle = 140f;
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
@@ -77,6 +83,12 @@ namespace GolfSimulation.Core
         private float currentGripWeight;
         private string debugPhase = "";
         private float debugFinishBlend;
+
+        // Arm protection — bone indices in trackedBones array
+        private int boneIdxLUA = -1, boneIdxLLA = -1, boneIdxRUA = -1, boneIdxRLA = -1;
+
+        // Finish hold timer
+        private float finishBlendTimer = 0f;
 
         private Vector3 DataToAvatarSpace(Vector3 v)
         {
@@ -162,12 +174,18 @@ namespace GolfSimulation.Core
                 if (spineChain[i].bone != null) list.Add(spineChain[i].bone);
             if (neckCache.bone != null) list.Add(neckCache.bone);
             if (headCache.bone != null) list.Add(headCache.bone);
-            if (leftUpperArmCache.bone != null) list.Add(leftUpperArmCache.bone);
-            if (leftLowerArmCache.bone != null) list.Add(leftLowerArmCache.bone);
+
+            boneIdxLUA = leftUpperArmCache.bone  != null ? list.Count : -1;
+            if (leftUpperArmCache.bone  != null) list.Add(leftUpperArmCache.bone);
+            boneIdxLLA = leftLowerArmCache.bone  != null ? list.Count : -1;
+            if (leftLowerArmCache.bone  != null) list.Add(leftLowerArmCache.bone);
+            boneIdxRUA = rightUpperArmCache.bone != null ? list.Count : -1;
             if (rightUpperArmCache.bone != null) list.Add(rightUpperArmCache.bone);
+            boneIdxRLA = rightLowerArmCache.bone != null ? list.Count : -1;
             if (rightLowerArmCache.bone != null) list.Add(rightLowerArmCache.bone);
-            if (leftUpperLegCache.bone != null) list.Add(leftUpperLegCache.bone);
-            if (leftLowerLegCache.bone != null) list.Add(leftLowerLegCache.bone);
+
+            if (leftUpperLegCache.bone  != null) list.Add(leftUpperLegCache.bone);
+            if (leftLowerLegCache.bone  != null) list.Add(leftLowerLegCache.bone);
             if (rightUpperLegCache.bone != null) list.Add(rightUpperLegCache.bone);
             if (rightLowerLegCache.bone != null) list.Add(rightLowerLegCache.bone);
 
@@ -319,6 +337,9 @@ namespace GolfSimulation.Core
 
             ApplyFKInternal(frame, loader);
 
+            if (enableArmProtection)
+                ApplyArmProtection(frame, loader);
+
             bool gripActive = enableGripCoupling && gripOffsetCaptured && currentGripWeight > 0.01f;
             if (gripActive)
                 ApplyGripCoupling();
@@ -415,13 +436,21 @@ namespace GolfSimulation.Core
 
             if (phase == "finish" && finishPoseCaptured)
             {
-                float blendWeight = ComputeFinishBlendWeight(frame, loader);
+                finishBlendTimer += Time.deltaTime;
+
+                // visibility 기반 가중치 (가시성이 낮으면 캡처 포즈 유지)
+                float visWeight  = ComputeFinishBlendWeight(frame, loader);
+                // 시간 기반 가중치 (finish 진입 후 finishHoldTime초 동안 점진적 증가)
+                float timeWeight = Mathf.SmoothStep(0f, 1f, finishBlendTimer / finishHoldTime);
+                float blendWeight = Mathf.Max(visWeight, timeWeight);
+
                 debugFinishBlend = blendWeight;
                 if (blendWeight > 0.01f)
                     ApplyFinishBlend(blendWeight);
             }
             else
             {
+                finishBlendTimer = 0f;
                 debugFinishBlend = 0f;
             }
         }
@@ -484,8 +513,77 @@ namespace GolfSimulation.Core
         {
             hasPreviousFrame = false;
             finishPoseCaptured = false;
+            finishBlendTimer = 0f;
             Debug.Log("[BoneMapper] Post-process state reset");
         }
+
+        // ─── Phase 7A/B: 팔 보호 ────────────────────────────────────────────────
+
+        /// <summary>
+        /// A) 팔꿈치 각도 클램핑 (과신전 방지)
+        /// B) 저가시성 구간에서 이전 프레임 포즈로 Slerp 고정
+        /// </summary>
+        private void ApplyArmProtection(PoseFrame frame, PoseDataLoader loader)
+        {
+            // A. 팔꿈치 과신전 클램핑
+            ClampElbowAngle(leftUpperArmCache,  leftLowerArmCache);
+            ClampElbowAngle(rightUpperArmCache, rightLowerArmCache);
+
+            // B. Visibility 기반 포즈 고정 (이전 프레임 필요)
+            if (!hasPreviousFrame) return;
+
+            float lElbowVis = loader.GetLandmarkVisibility(frame, "left_elbow");
+            float lWristVis = loader.GetLandmarkVisibility(frame, "left_wrist");
+            float rElbowVis = loader.GetLandmarkVisibility(frame, "right_elbow");
+            float rWristVis = loader.GetLandmarkVisibility(frame, "right_wrist");
+
+            float leftArmVis  = Mathf.Min(lElbowVis, lWristVis);
+            float rightArmVis = Mathf.Min(rElbowVis, rWristVis);
+
+            if (leftArmVis < armFreezeVisThreshold && boneIdxLUA >= 0)
+            {
+                float blend = Mathf.InverseLerp(armFreezeVisThreshold, 0.05f, leftArmVis);
+                leftUpperArmCache.bone.rotation = Quaternion.Slerp(
+                    leftUpperArmCache.bone.rotation, prevRotations[boneIdxLUA], blend);
+                if (boneIdxLLA >= 0)
+                    leftLowerArmCache.bone.rotation = Quaternion.Slerp(
+                        leftLowerArmCache.bone.rotation, prevRotations[boneIdxLLA], blend);
+            }
+
+            if (rightArmVis < armFreezeVisThreshold && boneIdxRUA >= 0)
+            {
+                float blend = Mathf.InverseLerp(armFreezeVisThreshold, 0.05f, rightArmVis);
+                rightUpperArmCache.bone.rotation = Quaternion.Slerp(
+                    rightUpperArmCache.bone.rotation, prevRotations[boneIdxRUA], blend);
+                if (boneIdxRLA >= 0)
+                    rightLowerArmCache.bone.rotation = Quaternion.Slerp(
+                        rightLowerArmCache.bone.rotation, prevRotations[boneIdxRLA], blend);
+            }
+        }
+
+        /// <summary>
+        /// 상완→전완 방향 벡터 사이 각도가 maxElbowAngle을 초과하면 전완 회전을 보정한다.
+        /// (angle 0° = 완전히 편 팔, angle → maxElbowAngle = 최대 굽힘)
+        /// </summary>
+        private void ClampElbowAngle(BoneCache upperArm, BoneCache lowerArm)
+        {
+            if (upperArm.bone == null || lowerArm.bone == null) return;
+
+            Vector3 upperDir = (upperArm.bone.rotation * upperArm.restAimDir).normalized;
+            Vector3 lowerDir = (lowerArm.bone.rotation * lowerArm.restAimDir).normalized;
+
+            float angle = Vector3.Angle(upperDir, lowerDir);
+            if (angle <= maxElbowAngle) return;
+
+            float excess = angle - maxElbowAngle;
+            Vector3 axis = Vector3.Cross(lowerDir, upperDir).normalized;
+            if (axis.sqrMagnitude < 0.001f) return;
+
+            Quaternion correction = Quaternion.AngleAxis(-excess, axis);
+            lowerArm.bone.rotation = correction * lowerArm.bone.rotation;
+        }
+
+        // ────────────────────────────────────────────────────────────────────────
 
         private void ApplyAimTwist(ref BoneCache cache, Vector3 aimTarget, Vector3 rightTarget)
         {
@@ -521,11 +619,12 @@ namespace GolfSimulation.Core
         private void OnGUI()
         {
             if (!showDebugInfo || !isInitialized) return;
-            GUILayout.BeginArea(new Rect(10, 130, 400, 120));
+            GUILayout.BeginArea(new Rect(10, 130, 420, 140));
             GUILayout.Label($"[BoneMapper] Phase: {debugPhase} | Spine: {spineChain.Length}");
             GUILayout.Label($"  Grip: {(enableGripCoupling && gripOffsetCaptured ? $"ON ({currentGripWeight:F2})" : "OFF")}");
             GUILayout.Label($"  Smoothing: {(enableSmoothing ? $"ON (resp: {currentResponsiveness:F2})" : "OFF")}");
-            GUILayout.Label($"  Finish Blend: {(enableFinishBlend ? $"{debugFinishBlend:F2}" : "OFF")} | Captured: {finishPoseCaptured}");
+            GUILayout.Label($"  Finish Blend: {(enableFinishBlend ? $"{debugFinishBlend:F2} (t={finishBlendTimer:F2}s)" : "OFF")} | Captured: {finishPoseCaptured}");
+            GUILayout.Label($"  Arm Protect: {(enableArmProtection ? $"ON (freeze<{armFreezeVisThreshold:F2}, maxElbow={maxElbowAngle:F0}°)" : "OFF")}");
             GUILayout.EndArea();
         }
     }

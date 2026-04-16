@@ -1012,6 +1012,130 @@ ApplyPose(frame, loader, phase)
 
 ---
 
+## 18. 포즈 데이터 추출 방식 비교 분석 및 SwingNet 이벤트 재처리
+
+### 18.1 배경
+
+기존 데이터(data/pose/golf_swing_pose.json, video 8/9)의 품질 문제를 인지하고,
+새로운 파이프라인(MediaPipe + R-CNN Fusion + SwingNet)으로 추출한 281개 데이터셋과 비교 분석.
+
+### 18.2 데이터 추출 방식 비교
+
+| 항목 | 기존 데이터 | 새 데이터 (data/new pose/) |
+|------|------------|--------------------------|
+| 해상도 | 160×160 (극저) | 1024×1024 (6.4× 향상) |
+| Keypoint 수 | 17개 (COCO) | 34개 (MediaPipe 33 + hip_center) |
+| 추가 Keypoint | 없음 | pinky/index/thumb (양손), heel/foot_index (양발) |
+| R-CNN Fusion | 없음 | vis<0.5 관절을 R-CNN x,y로 교체 (평균 7.4%) |
+| Outlier 보정 | 없음 | Savitzky-Golay + MAD (σ_xy=2.5, σ_z=3.0, 15프레임) |
+| Bone 정규화 | 없음 | ±15% 허용오차 교정 (평균 23% 좌표 수정) |
+| Cubic Spline | 없음 | has_pose=False 구간 보간 (MAX_GAP=8) |
+| 좌표 정규화 | 매 프레임 pelvis=(0,0) (동적) | address 프레임 hip_center 고정 앵커 (정적) |
+| 이벤트 감지 | 없음 (외부 처리) | SwingNet → 전부 실패 → Fallback (100%) |
+| 데이터 수 | 1개 | 281개 (dtl 117, face_on 93, other 71) |
+
+### 18.3 새 데이터의 치명적 문제: SwingNet 전부 Fallback
+
+모든 281개 파일에서 `"event_model": "fallback"`.
+
+**Fallback 방식(wrist Y 규칙 기반)의 품질 통계:**
+
+| 뷰 타입 | 전체 | top→impact 3프레임 이하 (비정상) |
+|---------|------|-------------------------------|
+| dtl | 117 | 27.8% |
+| face_on | 93 | 34.4% (max gap=72, min gap=0) |
+| 합계 | 281 | ~30% 이상 |
+
+실제 다운스윙은 8~12프레임이 정상. 3프레임 이하이면 BoneMapper의
+`GetCurrentSwingPhase()`, GripWeight, Smoothing responsiveness가
+잘못된 타이밍에 발동된다.
+
+**SwingNet 실패 원인:** 파이프라인 실행 시 `swingnet_1800.pth`가 없어
+`event_model="fallback"` 경로로 진입. 프레임 수 부족(64 미만) 아님
+(평균 294.8프레임).
+
+### 18.4 해결: fix_swingnet_events.py
+
+**위치:** `GolfSwingData/fix_swingnet_events.py`
+**모델 파일:** `GolfSwingData/swingnet/` (swingnet_1800.pth 63MB, model.py, MobileNetV2.py)
+
+#### 알고리즘 (PDF 파이프라인 문서 기준 재현)
+
+```
+step1_square_padded/{view}/{id}_square.mp4
+  │
+  ├─ VideoCapture → 160×160 uint8 BGR 프레임
+  ├─ float32 / 255.0 변환
+  ├─ 슬라이딩 윈도우 (SEQ_LEN=64, stride=4)
+  │    → EventDetector(MobileNetV2 CNN + Bi-LSTM) 배치 추론
+  │    → softmax probs[n, 9] 누적 + counts[n] 누적
+  ├─ probs /= counts (카운트 기반 평균)
+  ├─ 이벤트 클래스(0~7) 각각 argmax → 프레임 인덱스
+  └─ 순서 보정: 충돌(동일/역전) → +1 강제
+       → *_unity.json events 덮어쓰기
+```
+
+#### 모델 아키텍처 (EventDetector)
+
+| 레이어 | 구성 |
+|--------|------|
+| CNN | MobileNetV2 features[:19] → GlobalAvgPool → [batch×time, 1280] |
+| Dropout | 학습 시만 (inference: model.eval()로 자동 비활성) |
+| LSTM | Bi-LSTM (layers=1, hidden=256) → [batch×time, 512] |
+| Linear | 512 → 9 (8 이벤트 + 1 No Event) |
+
+#### 체크포인트 구조
+
+```
+swingnet_1800.pth (legacy pickle format, 63MB)
+  └── dict: {
+        'model_state_dict': ...,   ← 실제 가중치
+        'optimizer_state_dict': ...
+      }
+```
+
+#### 검증 결과 (로컬, dummy 입력)
+
+- 모델 로드 성공 (torch 2.11.0+cpu)
+- 출력 shape: `[64, 9]` ✓
+- softmax 합계: 1.0 ✓
+- 슬라이딩 윈도우 누적 + 순서 보정 로직 정상 동작 ✓
+
+### 18.5 Colab 실행 가이드
+
+```bash
+# 뷰별 실행 (3회 반복)
+!python GolfSwingData/fix_swingnet_events.py \
+  --video_dir  /content/drive/MyDrive/GolfSwing/step1_square_padded/dtl \
+  --json_dir   /content/drive/MyDrive/GolfSimulation/data/new_pose/dtl \
+  --model_dir  /content/drive/MyDrive/GolfSimulation/GolfSwingData/swingnet \
+  [--output_dir .../data/new_pose_fixed/dtl]  # 없으면 덮어쓰기
+
+# 또는 3개 뷰 일괄 처리
+!python GolfSwingData/fix_swingnet_events.py \
+  --all_views \
+  --video_dir  /content/drive/MyDrive/GolfSwing/step1_square_padded \
+  --json_dir   /content/drive/MyDrive/GolfSimulation/data/new_pose \
+  --model_dir  /content/drive/MyDrive/GolfSimulation/GolfSwingData/swingnet
+
+# 이미 처리된 파일 건너뛰기 (재실행 시)
+  --skip_done
+
+# 저장 없이 테스트
+  --dry_run
+```
+
+### 18.6 권장 사항
+
+| 우선순위 | 항목 |
+|---------|------|
+| **필수** | Colab에서 step1_square_padded 영상으로 fix_swingnet_events.py 실행 |
+| **필수** | top→impact 3프레임 이하 파일 재검토 (약 30%) |
+| **권장** | 새 데이터(34 keypoints) 사용 시 PoseDataLoader 34→17 매핑 레이어 추가 |
+| **권장** | GolfDB reference_stats 계산 파이프라인(step5~8) 실행 |
+
+---
+
 ## 17. 결론 및 권장사항
 
 1. **Phase 6 완료** — 골프 그립 + 프로시저럴 클럽 부착 → 스윙 동작과 연동
