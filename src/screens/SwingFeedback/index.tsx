@@ -97,9 +97,13 @@ function CircleGauge({ score, color, pct }: { score: number; color: string; pct:
   );
 }
 
-type Props = { navigation?: any };
+type Props = {
+  navigation?: any;
+  route?: { params?: { sessionId?: string } };
+};
 
-export const SwingFeedbackScreen: React.FC<Props> = ({ navigation }) => {
+export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
+  const sessionId = route?.params?.sessionId;
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <AppHeader navigation={navigation} />
@@ -155,7 +159,7 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           <TouchableOpacity
             style={s.ctaBtn}
-            onPress={() => navigation?.navigate('Viewer3D')}>
+            onPress={() => navigation?.navigate('Viewer3D', { sessionId })}>
             <Text style={s.ctaBtnText}>View in 3D</Text>
           </TouchableOpacity>
         </View>
@@ -187,7 +191,7 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={s.kinemInner}>📊</Text>
           </View>
           <Text style={s.kinemNote}>
-            Transition timing <Text style={{ color: C.pinkText, fontWeight: '600' }}>slightly off-tempo</Text>.
+            Transition timing <Text style={{ color: C.pinkText, fontWeight: '700' }}>slightly off-tempo</Text>.
           </Text>
         </View>
 
@@ -234,7 +238,7 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
             <TouchableOpacity
               style={s.recBtn}
-              onPress={() => navigation?.navigate('Viewer3D')}>
+              onPress={() => navigation?.navigate('Viewer3D', { sessionId })}>
               <Text style={s.recBtnText}>힙 스피드 드릴 보기</Text>
             </TouchableOpacity>
 
@@ -256,7 +260,7 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation }) => {
       {/* FAB */}
       <TouchableOpacity
         style={s.fab}
-        onPress={() => navigation?.navigate('SwingChat')}>
+        onPress={() => navigation?.navigate('SwingChat', { sessionId })}>
         <Text style={s.fabIcon}>💬</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -282,7 +286,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.75)',
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10,
   },
-  heroBadgeSub: { fontSize: 9, fontWeight: '700', color: C.textPrimary, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 0.9 },
+  heroBadgeSub: { fontSize: 11, fontWeight: '700', color: C.textPrimary, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 0.9 },
   heroBadgeMain: { fontSize: 16, fontWeight: '700', color: C.green },
   heroBadgeRight: {
     position: 'absolute', top: 14, right: 14,
@@ -300,7 +304,7 @@ const s = StyleSheet.create({
     shadowOpacity: 0.15, shadowRadius: 20, elevation: 6,
   },
   scoreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  scoreLabel: { fontSize: 10, fontWeight: '600', color: C.textPrimary, opacity: 0.7, textTransform: 'uppercase', letterSpacing: -0.25 },
+  scoreLabel: { fontSize: 11, fontWeight: '700', color: C.textPrimary, opacity: 0.7, textTransform: 'uppercase', letterSpacing: -0.25 },
   scoreValue: { fontSize: 36, fontWeight: '700', color: C.green, letterSpacing: -1.8 },
   scoreMax: { fontSize: 18, color: C.green, opacity: 0.5, marginBottom: 4 },
   deltaBadge: {
@@ -342,7 +346,7 @@ const s = StyleSheet.create({
   detailsText: { fontSize: 10, fontWeight: '700', color: C.textPrimary, letterSpacing: 0.5 },
   phaseGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'center' },
   phaseItem: { alignItems: 'center', gap: 8, width: '44%' },
-  phaseLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  phaseLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
 
   // Kinematic
   kinemCard: {
@@ -394,7 +398,7 @@ const s = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: C.grayDark, paddingTop: 12,
   },
   metricVal: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
-  metricValLabel: { fontSize: 9, fontWeight: '700', color: C.textPrimary, opacity: 0.4, letterSpacing: -0.45, textTransform: 'uppercase' },
+  metricValLabel: { fontSize: 11, fontWeight: '700', color: C.textPrimary, opacity: 0.4, letterSpacing: -0.45, textTransform: 'uppercase' },
   metricDivider: { width: 1, height: 32, backgroundColor: C.grayDark },
 
   // 개선 추천
@@ -413,7 +417,7 @@ const s = StyleSheet.create({
     borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4,
   },
   recFocusText: { fontSize: 10, fontWeight: '700', color: C.pinkText, letterSpacing: 0.5, textTransform: 'uppercase' },
-  recTitle: { fontSize: 19, fontWeight: '800', color: C.textPrimary },
+  recTitle: { fontSize: 19, fontWeight: '700', color: C.textPrimary },
   recBody: { fontSize: 14, color: C.textSub, lineHeight: 23 },
   recBtn: {
     backgroundColor: C.green, borderRadius: 999,

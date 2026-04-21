@@ -28,7 +28,7 @@ const BAR_HEIGHT = Math.min(Math.max(scale(76), 64), 96);
 const PILL_W     = scale(52);
 const PILL_H     = scale(28);
 const EMOJI_SIZE = scale(18);
-const LABEL_SIZE = Math.min(Math.max(scale(9), 8), 11);
+const LABEL_SIZE = Math.min(Math.max(scale(9), 10), 12);
 
 /** 아이콘만 담당 — 레이블은 Navigator가 별도로 처리 */
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
@@ -112,7 +112,7 @@ const tab = StyleSheet.create({
   emoji: { fontSize: EMOJI_SIZE },
   label: {
     fontSize: LABEL_SIZE,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
 });

@@ -24,7 +24,7 @@ const C = {
 export type AppHeaderProps = {
   /** react-navigation navigation object */
   navigation?: any;
-  /** 타이틀 텍스트 (기본값: 'CaddyMaster') */
+  /** 타이틀 텍스트 (기본값: 'Handy') */
   title?: string;
   /** 우측에 커스텀 엘리먼트를 렌더링할 경우 사용 */
   rightElement?: React.ReactNode;
@@ -40,7 +40,7 @@ export type AppHeaderProps = {
  */
 export const AppHeader: React.FC<AppHeaderProps> = ({
   navigation,
-  title = 'CaddyMaster',
+  title = 'Handy',
   rightElement,
   transparent = false,
 }) => {
@@ -111,7 +111,7 @@ const s = StyleSheet.create({
   },
   backIcon: {
     fontSize: 26, lineHeight: 30,
-    color: C.green, fontWeight: '600',
+    color: C.green, fontWeight: '700',
     marginLeft: -1,
   },
 
@@ -124,7 +124,7 @@ const s = StyleSheet.create({
   avatarImg: { width: '100%', height: '100%' },
 
   title: {
-    fontSize: 20, fontWeight: '800',
+    fontSize: 20, fontWeight: '700',
     color: C.green, letterSpacing: -0.5,
   },
 

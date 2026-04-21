@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   Image,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/ui/AppHeader';
+import { ViewType } from '../../hooks/useSwingAnalysis';
+import { usePolling } from '../../hooks/usePolling';
 
 import { PLACEHOLDER_URI } from '../../assets';
 
@@ -38,14 +41,48 @@ const C = {
 
 const CLUBS = ['드라이버', '아이언'];
 const ANGLES = ['측면 (DTL)', '정면', '후면'];
+// API view_type 매핑 (아키텍처 5.2절)
+const ANGLE_VIEW_TYPES: ViewType[] = ['dtl', 'face_on', 'other'];
 const TIMELINE_MARKS = ['0:00', '0:02', '0:04', '0:06', '0:08', '0:10'];
 
 type Props = { navigation?: any };
+
+const POLL_STATUS_LABEL: Record<string, string> = {
+  queued:     '분석 대기 중...',
+  processing: '분석 중...',
+  done:       '완료!',
+  error:      '오류 발생',
+};
 
 export const SwingUploadScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedClub, setSelectedClub] = useState(0);
   const [selectedAngle, setSelectedAngle] = useState(0);
   const [angleOpen, setAngleOpen] = useState(false);
+  const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+
+  const { status: pollStatus, sessionId: pollSessionId, error: pollError } = usePolling(jobId);
+  const isAnalyzing = jobId !== null && pollStatus !== 'done' && pollStatus !== 'error';
+
+  // Navigate when polling completes
+  useEffect(() => {
+    if (pollStatus === 'done' && pollSessionId) {
+      setJobId(null);
+      navigation?.navigate('SwingFeedback', { sessionId: pollSessionId });
+    }
+    if (pollStatus === 'error') {
+      setJobId(null);
+      Alert.alert('오류', pollError ?? '분석 중 문제가 발생했습니다. 다시 시도해 주세요.');
+    }
+  }, [pollStatus, pollSessionId, pollError, navigation]);
+
+  const handleAnalyze = () => {
+    // TODO: POST /module1/analyze { video_uri, view_type } 후 응답의 job_id 사용
+    void videoUri;
+    void ANGLE_VIEW_TYPES[selectedAngle];
+    const mockJobId = 'job-' + Date.now();
+    setJobId(mockJobId);
+  };
 
   const handlePickFile = () => {
     launchImageLibrary({ mediaType: 'video', selectionLimit: 1 }, res => {
@@ -55,6 +92,7 @@ export const SwingUploadScreen: React.FC<Props> = ({ navigation }) => {
         return;
       }
       if (res.assets?.[0]) {
+        setVideoUri(res.assets[0].uri ?? null);
         Alert.alert('파일 선택됨', res.assets[0].fileName ?? '영상이 선택되었습니다.');
       }
     });
@@ -184,10 +222,19 @@ export const SwingUploadScreen: React.FC<Props> = ({ navigation }) => {
           {/* 버튼 */}
           <View style={s.actionButtons}>
             <TouchableOpacity
-              style={s.btnPrimary}
+              style={[s.btnPrimary, isAnalyzing && { opacity: 0.7 }]}
               activeOpacity={0.85}
-              onPress={() => navigation?.navigate('SwingFeedback')}>
-              <Text style={s.btnPrimaryText}>🔍  분석 시작</Text>
+              disabled={isAnalyzing}
+              onPress={handleAnalyze}>
+              {isAnalyzing
+                ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={s.btnPrimaryText}>{POLL_STATUS_LABEL[pollStatus] ?? '처리 중...'}</Text>
+                  </View>
+                )
+                : <Text style={s.btnPrimaryText}>🔍  분석 시작</Text>
+              }
             </TouchableOpacity>
             <TouchableOpacity style={s.btnSecondary} activeOpacity={0.85} onPress={handlePickFile}>
               <Text style={s.btnSecondaryText}>파일 선택</Text>
@@ -312,7 +359,7 @@ const s = StyleSheet.create({
     marginLeft: -3, marginTop: -4,
   },
   timeMarkers: { flexDirection: 'row', justifyContent: 'space-between' },
-  timeMarker: { fontSize: 9, fontWeight: '700', color: C.textSub, opacity: 0.7, letterSpacing: 0.5 },
+  timeMarker: { fontSize: 11, fontWeight: '700', color: C.textSub, opacity: 0.7, letterSpacing: 0.5 },
 
   // 스윙 상세 카드
   detailCard: {
@@ -322,14 +369,14 @@ const s = StyleSheet.create({
   },
   detailTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
   fieldGroup: { gap: 8 },
-  fieldLabel: { fontSize: 11, fontWeight: '600', color: C.textSub, letterSpacing: 0.6, textTransform: 'uppercase' },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: C.textSub, letterSpacing: 0.6, textTransform: 'uppercase' },
   chipRow: { flexDirection: 'row', gap: 8 },
   chip: {
     flex: 1, paddingVertical: 12, borderRadius: 999,
     backgroundColor: C.chipInactive, alignItems: 'center',
   },
   chipActive: { backgroundColor: C.green },
-  chipText: { fontSize: 14, fontWeight: '600', color: C.textSub },
+  chipText: { fontSize: 14, fontWeight: '700', color: C.textSub },
   chipTextActive: { color: '#fff' },
   dropdown: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -359,7 +406,7 @@ const s = StyleSheet.create({
     backgroundColor: C.blueLight, borderWidth: 1, borderColor: C.blueBorder,
     borderRadius: 999, paddingVertical: 14, alignItems: 'center',
   },
-  btnSecondaryText: { fontSize: 14, fontWeight: '600', color: C.blueDeep },
+  btnSecondaryText: { fontSize: 14, fontWeight: '700', color: C.blueDeep },
 
   // Pro Tip
   tipCard: {

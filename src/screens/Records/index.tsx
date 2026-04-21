@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { AppHeader } from '../../components/ui/AppHeader';
+import { loadChatSessions, SavedChatSession } from '../../hooks/useChatHistory';
 
 const C = {
   bg:          '#f8faf8',
@@ -30,6 +32,7 @@ const C = {
 type Metric = { label: string; value: string; color?: string };
 type Session = {
   id: string;
+  sessionId: string;  // Module1 분석 세션 식별자
   featured?: boolean;
   title: string;
   score: number;
@@ -39,7 +42,7 @@ type Session = {
 
 const SESSIONS: Session[] = [
   {
-    id: '1', featured: true,
+    id: '1', sessionId: 'session-mock-001', featured: true,
     title: 'Driver Power Optimization', score: 92, date: 'Oct 24 • 09:15',
     metrics: [
       { label: 'Club',    value: 'Driver' },
@@ -49,7 +52,7 @@ const SESSIONS: Session[] = [
     ],
   },
   {
-    id: '2',
+    id: '2', sessionId: 'session-mock-002',
     title: 'Iron 7 Consistency Check', score: 84, date: 'Oct 22 • 14:30',
     metrics: [
       { label: 'Club',    value: 'Iron 7' },
@@ -59,7 +62,7 @@ const SESSIONS: Session[] = [
     ],
   },
   {
-    id: '3',
+    id: '3', sessionId: 'session-mock-003',
     title: 'Morning Putting Lab', score: 78, date: 'Oct 20 • 08:20',
     metrics: [
       { label: 'Club',     value: 'Putter' },
@@ -69,7 +72,7 @@ const SESSIONS: Session[] = [
     ],
   },
   {
-    id: '4',
+    id: '4', sessionId: 'session-mock-004',
     title: 'Hybrid Mid-Range Focus', score: 81, date: 'Oct 18 • 16:45',
     metrics: [
       { label: 'Club',    value: 'Hybrid' },
@@ -79,7 +82,7 @@ const SESSIONS: Session[] = [
     ],
   },
   {
-    id: '5',
+    id: '5', sessionId: 'session-mock-005',
     title: 'Iron 9 Pitching Session', score: 88, date: 'Oct 15 • 11:00',
     metrics: [
       { label: 'Club',     value: 'Iron 9' },
@@ -93,6 +96,7 @@ const SESSIONS: Session[] = [
 // ─── AI 채팅 탭 목업 데이터 ────────────────────────────────────
 type AiCard = {
   id: string;
+  chatSessionId: string;  // Module2 채팅 세션 식별자
   title: string;
   badge: string;
   badgeBg: string;
@@ -110,19 +114,19 @@ const AI_PINNED = {
 
 const AI_CARDS: AiCard[] = [
   {
-    id: '1', title: 'X-Factor 개선 드릴', badge: 'TECHNICAL',
+    id: '1', chatSessionId: 'chat-mock-001', title: 'X-Factor 개선 드릴', badge: 'TECHNICAL',
     badgeBg: '#eceeec', badgeText: '#6f7a6b',
     desc: '상하체 분리 회전을 위한 트레이닝 루틴 제안',
     date: '2026.03.02 09:15',
   },
   {
-    id: '2', title: '퍼팅 라인 읽기 전략', badge: 'STRATEGY',
+    id: '2', chatSessionId: 'chat-mock-002', title: '퍼팅 라인 읽기 전략', badge: 'STRATEGY',
     badgeBg: '#d1e4ff', badgeText: 'rgba(51,160,253,0.8)',
     desc: '그린 경사도 파악 및 에임 포인트 설정 가이드',
     date: '2026.02.28 17:45',
   },
   {
-    id: '3', title: '비거리 향상을 위한 지면 반력', badge: 'POWER',
+    id: '3', chatSessionId: 'chat-mock-003', title: '비거리 향상을 위한 지면 반력', badge: 'POWER',
     badgeBg: '#ffd9e2', badgeText: '#690034',
     desc: '수직항력을 활용한 헤드 스피드 증강 비결',
     date: '2026.02.25 11:20',
@@ -132,11 +136,11 @@ const AI_CARDS: AiCard[] = [
 // ─── 서브 컴포넌트 ──────────────────────────────────────────────
 
 /** 스윙 세션 카드 */
-const SessionCard: React.FC<{ item: Session; onPress: () => void }> = ({ item, onPress }) => (
+const SessionCard: React.FC<{ item: Session; onPress: (sessionId: string) => void }> = ({ item, onPress }) => (
   <TouchableOpacity
     style={[s.card, item.featured && s.cardFeatured]}
     activeOpacity={0.75}
-    onPress={onPress}>
+    onPress={() => onPress(item.sessionId)}>
     {/* 상단: 타이틀 + 점수 */}
     <View style={s.cardTop}>
       <View style={s.cardTitleRow}>
@@ -178,24 +182,47 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
   const [searchText, setSearchText] = useState('');
   const [aiSearchText, setAiSearchText] = useState('');
   const [aiSortAsc, setAiSortAsc] = useState(false);
+  const [savedChats, setSavedChats] = useState<SavedChatSession[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadChatSessions().then(setSavedChats);
+    }, []),
+  );
 
   const filtered = searchText
     ? SESSIONS.filter(s => s.title.toLowerCase().includes(searchText.toLowerCase()))
     : SESSIONS;
 
+  // 저장된 실제 채팅 + 목업 카드 합치기 (실제 기록 우선)
+  const mergedAiCards: AiCard[] = [
+    ...savedChats.map(s => ({
+      id:            `saved-${s.chatSessionId}`,
+      chatSessionId: s.chatSessionId,
+      title:         s.title,
+      badge:         s.badge as string,
+      badgeBg:       s.badgeBg,
+      badgeText:     s.badgeText,
+      desc:          s.preview,
+      date:          s.date,
+    })),
+    ...AI_CARDS.filter(c => !savedChats.some(s => s.chatSessionId === c.chatSessionId)),
+  ];
+
   const filteredAi = React.useMemo(() => {
     let list = aiSearchText
-      ? AI_CARDS.filter(c =>
+      ? mergedAiCards.filter(c =>
           c.title.toLowerCase().includes(aiSearchText.toLowerCase()) ||
           c.desc.toLowerCase().includes(aiSearchText.toLowerCase()),
         )
-      : [...AI_CARDS];
+      : [...mergedAiCards];
     list.sort((a, b) => {
       const cmp = a.date.localeCompare(b.date);
       return aiSortAsc ? cmp : -cmp;
     });
     return list;
-  }, [aiSearchText, aiSortAsc]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiSearchText, aiSortAsc, savedChats]);
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -254,7 +281,7 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
                 <SessionCard
                   key={item.id}
                   item={item}
-                  onPress={() => navigation?.navigate('SwingFeedback')}
+                  onPress={(sessionId) => navigation?.navigate('SwingFeedback', { sessionId })}
                 />
               ))}
             </View>
@@ -289,7 +316,7 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity
               style={s.pinnedCard}
               activeOpacity={0.75}
-              onPress={() => navigation?.navigate('SwingChat')}>
+              onPress={() => navigation?.navigate('SwingChat', { chatSessionId: 'chat-pinned-001' })}>
               <View style={s.pinnedTop}>
                 <View style={s.pinnedLeft}>
                   <View style={s.pinnedAvatarWrap}>
@@ -312,7 +339,7 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
                 key={card.id}
                 style={s.aiHistCard}
                 activeOpacity={0.75}
-                onPress={() => navigation?.navigate('SwingChat')}>
+                onPress={() => navigation?.navigate('SwingChat', { chatSessionId: card.chatSessionId })}>
                 <View style={s.aiHistTop}>
                   <Text style={s.aiHistTitle}>{card.title}</Text>
                   <View style={[s.catBadge, { backgroundColor: card.badgeBg }]}>
@@ -347,7 +374,7 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
       {/* FAB */}
       <TouchableOpacity
         style={s.fab}
-        onPress={() => navigation?.navigate('SwingChat')}>
+        onPress={() => navigation?.navigate('SwingChat', {})}>
         <Text style={s.fabIcon}>💬</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -363,7 +390,7 @@ const s = StyleSheet.create({
   // 히어로 (타이틀 + 세그먼트)
   heroSection: { gap: 16, paddingBottom: 8 },
   pageTitle: {
-    fontSize: 30, fontWeight: '800', color: C.textPri, letterSpacing: -0.75,
+    fontSize: 30, fontWeight: '700', color: C.textPri, letterSpacing: -0.75,
   },
   segControl: {
     flexDirection: 'row', gap: 4,
@@ -380,7 +407,7 @@ const s = StyleSheet.create({
     shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
   },
   segText:       { fontSize: 16, color: C.textSub },
-  segTextActive: { color: C.green, fontWeight: '600' },
+  segTextActive: { color: C.green, fontWeight: '700' },
 
   // 검색바
   searchRow: { flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 16 },
@@ -436,7 +463,7 @@ const s = StyleSheet.create({
     borderRadius: 0, padding: 8, alignItems: 'center', gap: 2,
   },
   metricChipFeatured: { backgroundColor: C.chipBg },
-  metricLabel: { fontSize: 8, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase' },
+  metricLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase' },
   metricValue: { fontSize: 12, fontWeight: '700', color: C.textPri },
 
   // AI 채팅 탭 피드

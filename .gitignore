@@ -1,6 +1,25 @@
-# Android 빌드 결과물
-android/app/build/
+# node_modules
+node_modules/
 
-# Ruby / CocoaPods (루트 .gitignore의 /vendor/bundle/는 여기 미적용)
+# Android 빌드 결과물
+android/build/
+android/app/build/
+android/.cxx/
+android/app/.cxx/
+.gradle/
+*.iml
+
+# iOS 빌드 결과물
+ios/build/
+ios/Pods/
+ios/DerivedData/
+
+# Ruby / CocoaPods
 vendor/bundle/
+
+# 기타
 coverage/
+*.jsbundle
+.metro-health-check*
+.env
+.env.local

@@ -1,26 +1,26 @@
 {
-  "root": "C:\\project\\golf_frontend",
-  "reactNativePath": "C:\\project\\golf_frontend\\node_modules\\react-native",
+  "root": "C:\\project\\golf_frontend\\GolfSimulation",
+  "reactNativePath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native",
   "reactNativeVersion": "0.84",
   "dependencies": {
     "@react-native-async-storage/async-storage": {
-      "root": "C:\\project\\golf_frontend\\node_modules\\@react-native-async-storage\\async-storage",
+      "root": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\@react-native-async-storage\\async-storage",
       "name": "@react-native-async-storage/async-storage",
       "platforms": {
         "ios": {
-          "podspecPath": "C:\\project\\golf_frontend\\node_modules\\@react-native-async-storage\\async-storage\\RNCAsyncStorage.podspec",
+          "podspecPath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\@react-native-async-storage\\async-storage\\RNCAsyncStorage.podspec",
           "version": "2.2.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "C:\\project\\golf_frontend\\node_modules\\@react-native-async-storage\\async-storage\\android",
+          "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\@react-native-async-storage\\async-storage\\android",
           "packageImportPath": "import com.reactnativecommunity.asyncstorage.AsyncStoragePackage;",
           "packageInstance": "new AsyncStoragePackage()",
           "buildTypes": [],
           "libraryName": "rnasyncstorage",
           "componentDescriptors": [],
-          "cmakeListsPath": "C:/project/golf_frontend/node_modules/@react-native-async-storage/async-storage/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "C:/project/golf_frontend/GolfSimulation/node_modules/@react-native-async-storage/async-storage/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -29,17 +29,17 @@
       }
     },
     "react-native-gesture-handler": {
-      "root": "C:\\project\\golf_frontend\\node_modules\\react-native-gesture-handler",
+      "root": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-gesture-handler",
       "name": "react-native-gesture-handler",
       "platforms": {
         "ios": {
-          "podspecPath": "C:\\project\\golf_frontend\\node_modules\\react-native-gesture-handler\\RNGestureHandler.podspec",
+          "podspecPath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-gesture-handler\\RNGestureHandler.podspec",
           "version": "2.30.1",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "C:\\project\\golf_frontend\\node_modules\\react-native-gesture-handler\\android",
+          "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-gesture-handler\\android",
           "packageImportPath": "import com.swmansion.gesturehandler.RNGestureHandlerPackage;",
           "packageInstance": "new RNGestureHandlerPackage()",
           "buildTypes": [],
@@ -48,7 +48,7 @@
             "RNGestureHandlerButtonComponentDescriptor",
             "RNGestureHandlerRootViewComponentDescriptor"
           ],
-          "cmakeListsPath": "C:/project/golf_frontend/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "C:/project/golf_frontend/GolfSimulation/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -57,23 +57,23 @@
       }
     },
     "react-native-image-picker": {
-      "root": "C:\\project\\golf_frontend\\node_modules\\react-native-image-picker",
+      "root": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-image-picker",
       "name": "react-native-image-picker",
       "platforms": {
         "ios": {
-          "podspecPath": "C:\\project\\golf_frontend\\node_modules\\react-native-image-picker\\react-native-image-picker.podspec",
+          "podspecPath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-image-picker\\react-native-image-picker.podspec",
           "version": "7.2.3",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "C:\\project\\golf_frontend\\node_modules\\react-native-image-picker\\android",
+          "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-image-picker\\android",
           "packageImportPath": "import com.imagepicker.ImagePickerPackage;",
           "packageInstance": "new ImagePickerPackage()",
           "buildTypes": [],
           "libraryName": "RNImagePickerSpec",
           "componentDescriptors": [],
-          "cmakeListsPath": "C:/project/golf_frontend/node_modules/react-native-image-picker/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "C:/project/golf_frontend/GolfSimulation/node_modules/react-native-image-picker/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -82,23 +82,23 @@
       }
     },
     "react-native-reanimated": {
-      "root": "C:\\project\\golf_frontend\\node_modules\\react-native-reanimated",
+      "root": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-reanimated",
       "name": "react-native-reanimated",
       "platforms": {
         "ios": {
-          "podspecPath": "C:\\project\\golf_frontend\\node_modules\\react-native-reanimated\\RNReanimated.podspec",
+          "podspecPath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-reanimated\\RNReanimated.podspec",
           "version": "4.3.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "C:\\project\\golf_frontend\\node_modules\\react-native-reanimated\\android",
+          "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-reanimated\\android",
           "packageImportPath": "import com.swmansion.reanimated.ReanimatedPackage;",
           "packageInstance": "new ReanimatedPackage()",
           "buildTypes": [],
           "libraryName": "rnreanimated",
           "componentDescriptors": [],
-          "cmakeListsPath": "C:/project/golf_frontend/node_modules/react-native-reanimated/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "C:/project/golf_frontend/GolfSimulation/node_modules/react-native-reanimated/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -107,17 +107,17 @@
       }
     },
     "react-native-safe-area-context": {
-      "root": "C:\\project\\golf_frontend\\node_modules\\react-native-safe-area-context",
+      "root": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-safe-area-context",
       "name": "react-native-safe-area-context",
       "platforms": {
         "ios": {
-          "podspecPath": "C:\\project\\golf_frontend\\node_modules\\react-native-safe-area-context\\react-native-safe-area-context.podspec",
+          "podspecPath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-safe-area-context\\react-native-safe-area-context.podspec",
           "version": "5.7.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "C:\\project\\golf_frontend\\node_modules\\react-native-safe-area-context\\android",
+          "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-safe-area-context\\android",
           "packageImportPath": "import com.th3rdwave.safeareacontext.SafeAreaContextPackage;",
           "packageInstance": "new SafeAreaContextPackage()",
           "buildTypes": [],
@@ -126,7 +126,7 @@
             "RNCSafeAreaProviderComponentDescriptor",
             "RNCSafeAreaViewComponentDescriptor"
           ],
-          "cmakeListsPath": "C:/project/golf_frontend/node_modules/react-native-safe-area-context/android/src/main/jni/CMakeLists.txt",
+          "cmakeListsPath": "C:/project/golf_frontend/GolfSimulation/node_modules/react-native-safe-area-context/android/src/main/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -135,17 +135,17 @@
       }
     },
     "react-native-screens": {
-      "root": "C:\\project\\golf_frontend\\node_modules\\react-native-screens",
+      "root": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-screens",
       "name": "react-native-screens",
       "platforms": {
         "ios": {
-          "podspecPath": "C:\\project\\golf_frontend\\node_modules\\react-native-screens\\RNScreens.podspec",
+          "podspecPath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-screens\\RNScreens.podspec",
           "version": "4.24.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "C:\\project\\golf_frontend\\node_modules\\react-native-screens\\android",
+          "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-screens\\android",
           "packageImportPath": "import com.swmansion.rnscreens.RNScreensPackage;",
           "packageInstance": "new RNScreensPackage()",
           "buildTypes": [],
@@ -165,7 +165,7 @@
             "RNSTabsHostComponentDescriptor",
             "RNSSafeAreaViewComponentDescriptor"
           ],
-          "cmakeListsPath": "C:/project/golf_frontend/node_modules/react-native-screens/android/src/main/jni/CMakeLists.txt",
+          "cmakeListsPath": "C:/project/golf_frontend/GolfSimulation/node_modules/react-native-screens/android/src/main/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -174,23 +174,23 @@
       }
     },
     "react-native-vector-icons": {
-      "root": "C:\\project\\golf_frontend\\node_modules\\react-native-vector-icons",
+      "root": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-vector-icons",
       "name": "react-native-vector-icons",
       "platforms": {
         "ios": {
-          "podspecPath": "C:\\project\\golf_frontend\\node_modules\\react-native-vector-icons\\RNVectorIcons.podspec",
+          "podspecPath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-vector-icons\\RNVectorIcons.podspec",
           "version": "10.3.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "C:\\project\\golf_frontend\\node_modules\\react-native-vector-icons\\android",
+          "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-vector-icons\\android",
           "packageImportPath": "import com.oblador.vectoricons.VectorIconsPackage;",
           "packageInstance": "new VectorIconsPackage()",
           "buildTypes": [],
           "libraryName": "RNVectorIconsSpec",
           "componentDescriptors": [],
-          "cmakeListsPath": "C:/project/golf_frontend/node_modules/react-native-vector-icons/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "C:/project/golf_frontend/GolfSimulation/node_modules/react-native-vector-icons/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -199,22 +199,22 @@
       }
     },
     "react-native-video": {
-      "root": "C:\\project\\golf_frontend\\node_modules\\react-native-video",
+      "root": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-video",
       "name": "react-native-video",
       "platforms": {
         "ios": {
-          "podspecPath": "C:\\project\\golf_frontend\\node_modules\\react-native-video\\react-native-video.podspec",
+          "podspecPath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-video\\react-native-video.podspec",
           "version": "6.19.1",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "C:\\project\\golf_frontend\\node_modules\\react-native-video\\android",
+          "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-video\\android",
           "packageImportPath": "import com.brentvatne.react.ReactVideoPackage;",
           "packageInstance": "new ReactVideoPackage()",
           "buildTypes": [],
           "componentDescriptors": [],
-          "cmakeListsPath": "C:/project/golf_frontend/node_modules/react-native-video/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "C:/project/golf_frontend/GolfSimulation/node_modules/react-native-video/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -223,23 +223,23 @@
       }
     },
     "react-native-worklets": {
-      "root": "C:\\project\\golf_frontend\\node_modules\\react-native-worklets",
+      "root": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-worklets",
       "name": "react-native-worklets",
       "platforms": {
         "ios": {
-          "podspecPath": "C:\\project\\golf_frontend\\node_modules\\react-native-worklets\\RNWorklets.podspec",
+          "podspecPath": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-worklets\\RNWorklets.podspec",
           "version": "0.8.1",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "C:\\project\\golf_frontend\\node_modules\\react-native-worklets\\android",
+          "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\node_modules\\react-native-worklets\\android",
           "packageImportPath": "import com.swmansion.worklets.WorkletsPackage;",
           "packageInstance": "new WorkletsPackage()",
           "buildTypes": [],
           "libraryName": "rnworklets",
           "componentDescriptors": [],
-          "cmakeListsPath": "C:/project/golf_frontend/node_modules/react-native-worklets/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "C:/project/golf_frontend/GolfSimulation/node_modules/react-native-worklets/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -410,7 +410,7 @@
         {
           "name": "--path <path>",
           "description": "Path to the React Native project root.",
-          "default": "C:\\project\\golf_frontend"
+          "default": "C:\\project\\golf_frontend\\GolfSimulation"
         },
         {
           "name": "--platform <string>",
@@ -710,7 +710,7 @@
   "assets": [],
   "project": {
     "ios": {
-      "sourceDir": "C:\\project\\golf_frontend\\ios",
+      "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\ios",
       "xcodeProject": {
         "name": "GolfApp.xcodeproj",
         "path": ".",
@@ -719,7 +719,7 @@
       "assets": []
     },
     "android": {
-      "sourceDir": "C:\\project\\golf_frontend\\android",
+      "sourceDir": "C:\\project\\golf_frontend\\GolfSimulation\\android",
       "appName": "app",
       "packageName": "com.golfapp",
       "applicationId": "com.golfapp",

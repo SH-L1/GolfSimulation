@@ -35,7 +35,7 @@ const C = {
 };
 
 // 목업 데이터
-const MOCK_USER = { name: '알…', level: '초보' };
+const MOCK_USER = { name: '박민준', level: '초보' };
 const MOCK_SWING = {
   date: '2026-03-04',
   score: 65,
@@ -66,7 +66,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={s.heroGreeting}>안녕하세요, {MOCK_USER.name}</Text>
             <Text style={s.heroSub}>오늘 더 멋진 스윙을 할 준비가{'\n'}되셨나요?</Text>
             <View style={s.levelBadge}>
-              <Text style={s.levelText}>{MOCK_USER.level}</Text>
+              <Text style={s.levelText} maxFontSizeMultiplier={1.2}>{MOCK_USER.level}</Text>
             </View>
           </View>
           <View style={s.heroCharacterWrap}>
@@ -119,22 +119,26 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={s.sectionTitle}>최근 스윙</Text>
             <Text style={s.sectionDate}>{MOCK_SWING.date}</Text>
           </View>
-          <View style={s.swingCard}>
+          <TouchableOpacity
+            style={s.swingCard}
+            activeOpacity={0.8}
+            onPress={() => navigation?.navigate('SwingFeedback', { sessionId: 'session-mock-001' })}>
+
             {/* 썸네일 */}
             <View style={s.swingThumb}>
               <Image source={{ uri: imgSwingThumbnail }} style={s.swingThumbImg} />
               {/* 점수 뱃지 */}
               <View style={s.scoreBadge}>
-                <Text style={s.scoreBadgeLabel}>SCORE</Text>
-                <Text style={s.scoreBadgeValue}>{MOCK_SWING.score}</Text>
+                <Text style={s.scoreBadgeLabel} maxFontSizeMultiplier={1.2}>SCORE</Text>
+                <Text style={s.scoreBadgeValue} maxFontSizeMultiplier={1.2}>{MOCK_SWING.score}</Text>
               </View>
               {/* 하단 태그 */}
               <View style={s.thumbTags}>
                 <View style={s.thumbTag}>
-                  <Text style={s.thumbTagText}>POWER: {MOCK_SWING.power}</Text>
+                  <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>POWER: {MOCK_SWING.power}</Text>
                 </View>
                 <View style={s.thumbTag}>
-                  <Text style={s.thumbTagText}>TEMPO: {MOCK_SWING.tempo}</Text>
+                  <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>TEMPO: {MOCK_SWING.tempo}</Text>
                 </View>
               </View>
             </View>
@@ -146,7 +150,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={s.analysisSummary}>{MOCK_SWING.summary}</Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* 오늘의 프로 팁 */}
@@ -173,11 +177,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           contentContainerStyle={s.statsScroll}>
           {MOCK_STATS.map(stat => (
             <View key={stat.label} style={s.statCard}>
-              <Text style={s.statLabel}>{stat.label.toUpperCase()}</Text>
+              <Text style={s.statLabel} maxFontSizeMultiplier={1.2}>{stat.label.toUpperCase()}</Text>
               <View style={s.statValueRow}>
-                <Text style={s.statValue}>{stat.value}</Text>
-                {stat.unit && <Text style={s.statUnit}>{stat.unit}</Text>}
-                {stat.delta && <Text style={[s.statDelta, { color: stat.deltaColor }]}>{stat.delta}</Text>}
+                <Text style={s.statValue} maxFontSizeMultiplier={1.2}>{stat.value}</Text>
+                {stat.unit && <Text style={s.statUnit} maxFontSizeMultiplier={1.2}>{stat.unit}</Text>}
+                {stat.delta && <Text style={[s.statDelta, { color: stat.deltaColor }]} maxFontSizeMultiplier={1.2}>{stat.delta}</Text>}
               </View>
               <View style={s.statBarBg}>
                 <View style={[s.statBarFill, { width: `${stat.progress * 100}%`, backgroundColor: stat.barColor }]} />
@@ -278,7 +282,7 @@ const s = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     justifyContent: 'center', alignItems: 'center',
   },
-  btnSmallLabel: { fontSize: 13, fontWeight: '500', color: C.textPrimary },
+  btnSmallLabel: { fontSize: 13, fontWeight: '400', color: C.textPrimary },
 
   // 최근 스윙
   section: { gap: 12 },
@@ -304,7 +308,7 @@ const s = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10, paddingVertical: 4,
   },
-  scoreBadgeLabel: { fontSize: 9, color: C.textMuted, fontWeight: '600', letterSpacing: 0.5 },
+  scoreBadgeLabel: { fontSize: 11, color: C.textMuted, fontWeight: '600', letterSpacing: 0.5 },
   scoreBadgeValue: { fontSize: 20, fontWeight: '700', color: C.green },
   thumbTags: { position: 'absolute', bottom: 14, left: 14, flexDirection: 'row', gap: 6 },
   thumbTag: {
@@ -312,7 +316,7 @@ const s = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 7, paddingVertical: 3,
   },
-  thumbTagText: { fontSize: 9, color: '#fff', fontWeight: '500' },
+  thumbTagText: { fontSize: 11, color: '#fff', fontWeight: '400' },
   swingAnalysis: {
     backgroundColor: '#f2f4f2',
     flexDirection: 'row',
@@ -358,11 +362,11 @@ const s = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  statLabel: { fontSize: 9, color: C.textFaint, fontWeight: '600', letterSpacing: 0.9 },
+  statLabel: { fontSize: 11, color: C.textFaint, fontWeight: '600', letterSpacing: 0.9 },
   statValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   statValue: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
-  statUnit: { fontSize: 9, color: C.textMuted, fontWeight: '500' },
-  statDelta: { fontSize: 9, fontWeight: '600' },
+  statUnit: { fontSize: 11, color: C.textMuted, fontWeight: '400' },
+  statDelta: { fontSize: 11, fontWeight: '600' },
   statBarBg: { height: 4, backgroundColor: '#f5f5f4', borderRadius: 999, overflow: 'hidden' },
   statBarFill: { height: '100%', borderRadius: 999 },
 
