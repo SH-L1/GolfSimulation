@@ -7,14 +7,13 @@ import {
   ScrollView,
   Image,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PLACEHOLDER_URI } from '../../assets';
+import { saveChatSession } from '../../hooks/useChatHistory';
 
-// TODO: 실제 에셋으로 교체 필요 (src/assets/index.ts 참고)
 const imgCoachPortrait = PLACEHOLDER_URI;
 const imgDrillDemo     = PLACEHOLDER_URI;
 
@@ -33,7 +32,6 @@ const C = {
 
 const QUICK_CHIPS = ['Stretching Drill', 'Compare Pro', 'Book Lesson'];
 
-// AI 자동 응답 목업
 const AI_REPLIES = [
   '분석 결과를 바탕으로, 상체와 하체의 분리 회전을 늘리는 것이 핵심입니다. 매일 5분씩 흉추 회전 스트레칭을 추천합니다.',
   '좋은 질문입니다! 템포를 3:1 비율로 유지하면서 백스윙 시 왼쪽 어깨가 턱 아래까지 오도록 의식해 보세요.',
@@ -80,14 +78,17 @@ const INITIAL_MESSAGES: Message[] = [
 ];
 
 type Props = {
-  route?: { params?: { title?: string } };
+  route?: { params?: { chatSessionId?: string; sessionId?: string; title?: string } };
   navigation?: any;
 };
 
-export const SwingChatScreen: React.FC<Props> = ({ navigation }) => {
-  const [inputText, setInputText]   = useState('');
-  const [messages, setMessages]     = useState<Message[]>(INITIAL_MESSAGES);
-  const [isTyping, setIsTyping]     = useState(false);
+export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
+  const sessionId         = route?.params?.sessionId;
+  const chatSessionId     = route?.params?.chatSessionId;
+  const chatSessionIdRef  = useRef(chatSessionId ?? ('chat-' + Date.now()));
+  const [inputText, setInputText] = useState('');
+  const [messages, setMessages]   = useState<Message[]>(INITIAL_MESSAGES);
+  const [isTyping, setIsTyping]   = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const replyIdx  = useRef(0);
 
@@ -106,11 +107,42 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation }) => {
 
     setTimeout(() => {
       setIsTyping(false);
+      // TODO: POST /module2/chat/stream (SSE) 로 교체
+      // body: { message: trimmed, session_id: chatSessionId, current_session_id: sessionId }
+      void sessionId;
+      void chatSessionId;
       const reply = AI_REPLIES[replyIdx.current % AI_REPLIES.length];
       replyIdx.current += 1;
       appendMessage({ role: 'ai', text: reply, time: now() });
     }, 1200);
-  }, [appendMessage]);
+  }, [appendMessage, sessionId, chatSessionId]);
+
+  const endChat = useCallback(() => {
+    Alert.alert('채팅 종료', '채팅을 종료하고 기록을 저장하시겠어요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '종료',
+        style: 'destructive',
+        onPress: async () => {
+          const title = route?.params?.title ?? '스윙 분석 채팅';
+          const id    = chatSessionIdRef.current;
+          const last  = messages[messages.length - 1]?.text ?? '';
+          const date  = new Date().toLocaleDateString('ko-KR', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+          });
+          await saveChatSession({
+            chatSessionId: id,
+            sessionId,
+            title,
+            preview: last.slice(0, 60),
+            date,
+            messages: messages.map(m => ({ role: m.role, text: m.text })),
+          });
+          navigation?.goBack();
+        },
+      },
+    ]);
+  }, [messages, sessionId, route, navigation]);
 
   return (
     <View style={s.root}>
@@ -121,10 +153,10 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation }) => {
             <View style={s.coachBorder}>
               <Image source={{ uri: imgCoachPortrait }} style={s.coachImg} />
             </View>
-            <Text style={s.headerTitle}>CaddyMaster AI</Text>
+            <Text style={s.headerTitle}>Handy AI</Text>
           </View>
-          <TouchableOpacity style={s.settingsBtn}>
-            <Text style={s.settingsIcon}>⚙</Text>
+          <TouchableOpacity style={s.endBtn} onPress={endChat}>
+            <Text style={s.endBtnText}>종료</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -141,14 +173,14 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation }) => {
           msg.role === 'ai' ? (
             <View key={msg.id} style={s.aiRow}>
               <View style={s.aiMsgWrap}>
-                <Text style={s.aiLabel}>CaddyMaster AI</Text>
+                <Text style={s.aiLabel}>Handy AI</Text>
                 <View style={s.aiBubble}>
                   <Text style={s.aiText}>{msg.text}</Text>
                   {msg.hasDrill && (
                     <TouchableOpacity
                       style={s.drillCard}
                       activeOpacity={0.8}
-                      onPress={() => navigation?.navigate('Viewer3D')}>
+                      onPress={() => navigation?.navigate('Viewer3D', { sessionId })}>
                       <View style={s.drillThumbWrap}>
                         <Image source={{ uri: imgDrillDemo }} style={s.drillThumb} />
                       </View>
@@ -205,14 +237,10 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation }) => {
             ))}
           </View>
         )}
-
-        <View style={{ height: 72 }} />
       </ScrollView>
 
-      {/* 플로팅 입력창 */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={s.inputFloating}>
+      {/* 입력창 — 절대 포지셔닝으로 하단 고정 */}
+      <View style={s.inputFloating}>
         <View style={s.inputBar}>
           <TouchableOpacity style={s.iconBtn}>
             <Text style={s.iconBtnText}>＋</Text>
@@ -222,7 +250,7 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation }) => {
             value={inputText}
             onChangeText={setInputText}
             onSubmitEditing={() => sendMessage(inputText)}
-            placeholder="캐디에게 무엇이든 물어보세요..."
+            placeholder="Handy에게 무엇이든 물어보세요..."
             placeholderTextColor={C.textMuted}
             multiline
             returnKeyType="send"
@@ -234,7 +262,7 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={s.sendIcon}>➤</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 };
@@ -255,12 +283,17 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: C.border, overflow: 'hidden',
   },
   coachImg: { width: '100%', height: '100%' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: C.green, letterSpacing: -0.5 },
-  settingsBtn: { padding: 8 },
-  settingsIcon: { fontSize: 18, color: '#78716c' },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: C.green, letterSpacing: -0.5 },
+
+  endBtn: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1, borderColor: '#ef4444',
+  },
+  endBtnText: { fontSize: 13, fontWeight: '700', color: '#ef4444' },
 
   chatScroll: { flex: 1 },
-  chatContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16, gap: 20 },
+  chatContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 160, gap: 20 },
 
   aiRow: { alignItems: 'flex-start' },
   aiMsgWrap: { maxWidth: '85%', gap: 6 },
@@ -296,7 +329,7 @@ const s = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: C.green, justifyContent: 'center', alignItems: 'center',
   },
-  drillPlayIcon: { fontSize: 10, color: '#fff', marginLeft: 2 },
+  drillPlayIcon: { fontSize: 14, color: '#fff', marginLeft: 2 },
 
   typingRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green },
@@ -325,7 +358,9 @@ const s = StyleSheet.create({
   },
   chipText: { fontSize: 11, fontWeight: '700', color: C.chipText },
 
-  inputFloating: { position: 'absolute', bottom: 84, left: 16, right: 16 },
+  inputFloating: {
+    position: 'absolute', bottom: 80, left: 16, right: 16,
+  },
   inputBar: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: C.glass,

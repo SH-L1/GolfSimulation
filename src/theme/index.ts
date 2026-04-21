@@ -8,7 +8,11 @@ export const colors = {
   textPrimary:   '#FFFFFF',
   textSecondary: '#8899AA',
 
-  // 시스템 피드백 (변경 예정)
+  // 앱 전체 주 색상 — 모든 화면의 C.green 기준값
+  primary:      '#006e1c',
+  primaryLight: 'rgba(0,110,28,0.12)',
+
+  // 시스템 피드백
   success: '#4CAF50',
   warning: '#FF9800',
   error:   '#F44336',

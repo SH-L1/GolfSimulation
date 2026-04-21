@@ -35,15 +35,21 @@ const PHASES = ['어드레스', '탑', '임팩트', '피니시'];
 const SPEEDS = ['0.2x', '0.5x', '1x'];
 const VIEWS  = ['정면 뷰', '측면 뷰', '후면 뷰'];
 
-type Props = { navigation?: any };
+type Props = {
+  navigation?: any;
+  route?: { params?: { sessionId?: string } };
+};
 
-export const Viewer3DScreen: React.FC<Props> = ({ navigation }) => {
+export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
+  // TODO: sessionId로 GET /module3/landmarks/{sessionId} 호출
+  const sessionId = route?.params?.sessionId;
+  void sessionId;
   const [shadowOn, setShadowOn]     = useState(true);
   const [activePhase, setPhase]     = useState(1);
   const [activeSpeed, setSpeed]     = useState(1);
   const [activeView, setView]       = useState(0);
   const [playing, setPlaying]       = useState(false);
-  const [scrubPct, setScrubPct]     = useState(0.45);
+  const [scrubPct]                  = useState(0.45);
 
   return (
     <View style={s.root}>
@@ -144,7 +150,7 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation }) => {
       {/* FAB */}
       <TouchableOpacity
         style={s.fab}
-        onPress={() => navigation?.navigate('SwingChat')}>
+        onPress={() => navigation?.navigate('SwingChat', { sessionId })}>
         <Text style={s.fabIcon}>💬</Text>
       </TouchableOpacity>
 
@@ -206,7 +212,7 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
   },
-  viewLabelText: { fontSize: 10, fontWeight: '600', color: C.textSub, letterSpacing: 1, textTransform: 'uppercase' },
+  viewLabelText: { fontSize: 11, fontWeight: '700', color: C.textSub, letterSpacing: 1, textTransform: 'uppercase' },
 
   // HUD 패널
   hudPanel: {
@@ -232,8 +238,8 @@ const s = StyleSheet.create({
   },
   toggleThumbOn: { alignSelf: 'flex-end' },
   hudDivider: { height: 1, backgroundColor: 'rgba(190,202,185,0.3)' },
-  hudSub: { fontSize: 10, fontWeight: '600', color: C.green, textTransform: 'uppercase', letterSpacing: -0.5 },
-  hudValue: { fontSize: 24, fontWeight: '800', color: C.textPrimary },
+  hudSub: { fontSize: 11, fontWeight: '700', color: C.green, textTransform: 'uppercase', letterSpacing: -0.5 },
+  hudValue: { fontSize: 24, fontWeight: '700', color: C.textPrimary },
 
   // 스크러버
   scrubber: {
@@ -270,7 +276,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 5,
   },
   phaseChipActive: { backgroundColor: C.green },
-  phaseChipText: { fontSize: 9, fontWeight: '600', color: C.textSub },
+  phaseChipText: { fontSize: 10, fontWeight: '700', color: C.textSub },
   phaseChipTextActive: { color: C.surface },
   playBtn: {
     width: 44, height: 44, borderRadius: 22,
@@ -298,7 +304,7 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
   },
-  speedText: { fontSize: 9, fontWeight: '700', color: C.textSub },
+  speedText: { fontSize: 10, fontWeight: '700', color: C.textSub },
   speedTextActive: { color: C.green },
 
   // FAB

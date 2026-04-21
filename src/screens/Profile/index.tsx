@@ -45,10 +45,10 @@ const MOCK_USER = {
 };
 
 const SETTINGS = [
-  { key: 'account',  label: '계정 정보', sub: 'Personal info and preferences', iconBg: C.iconBlue,  icon: '👤' },
-  { key: 'plan',     label: '구독 플랜', sub: 'Caddy Pro+ Monthly Plan',        iconBg: C.iconPink,  icon: '🏷' },
-  { key: 'stats',    label: '스윙 통계', sub: 'Historical performance data',    iconBg: C.iconGreen, icon: '📊' },
-  { key: 'settings', label: '앱 설정',  sub: 'Notifications and behavior',     iconBg: C.iconGray,  icon: '⚙️' },
+  { key: 'account',  label: '계정 정보',  sub: 'Personal info and preferences', iconBg: C.iconBlue,  icon: '👤' },
+  { key: 'plan',     label: '구독 플랜',  sub: 'Handy Pro+ Monthly Plan',       iconBg: C.iconPink,  icon: '🏷' },
+  { key: 'level',    label: '레벨 설정',  sub: '현재 실력 레벨 변경',               iconBg: C.iconGreen, icon: '🏌️' },
+  { key: 'settings', label: '앱 설정',   sub: 'Notifications and behavior',    iconBg: C.iconGray,  icon: '⚙️' },
 ];
 
 type Props = { navigation?: any };
@@ -98,7 +98,11 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               key={item.key}
               style={s.listRow}
               activeOpacity={0.7}
-              onPress={() => Alert.alert(item.label, '준비 중인 기능입니다.')}>
+              onPress={() =>
+                item.key === 'level'
+                  ? navigation?.navigate('LevelSetting')
+                  : Alert.alert(item.label, '준비 중인 기능입니다.')
+              }>
               <View style={s.listLeft}>
                 <View style={[s.iconCircle, { backgroundColor: item.iconBg }]}>
                   <Text style={s.iconEmoji}>{item.icon}</Text>
@@ -134,7 +138,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* 버전 */}
         <View style={s.versionWrap}>
-          <Text style={s.versionText}>CADDYMASTER V2.4.0 (BUILD 992)</Text>
+          <Text style={s.versionText}>HANDY V2.4.0 (BUILD 992)</Text>
         </View>
 
         <View style={{ height: 100 }} />
@@ -175,8 +179,8 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12, shadowRadius: 6, elevation: 4,
   },
-  levelText:  { fontSize: 12, fontWeight: '600', color: '#fff', letterSpacing: 0.6 },
-  userName:   { fontSize: 30, fontWeight: '800', color: C.textPri, textAlign: 'center', marginBottom: 4 },
+  levelText:  { fontSize: 12, fontWeight: '700', color: '#fff', letterSpacing: 0.6 },
+  userName:   { fontSize: 30, fontWeight: '700', color: C.textPri, textAlign: 'center', marginBottom: 4 },
   userEmail:  { fontSize: 16, color: C.textSub, textAlign: 'center', marginBottom: 32 },
 
   statsRow: { flexDirection: 'row', gap: 16, width: '100%' },
@@ -219,7 +223,7 @@ const s = StyleSheet.create({
   // 버전
   versionWrap: { alignItems: 'center', paddingTop: 8, opacity: 0.8 },
   versionText: {
-    fontSize: 10, fontWeight: '600', color: C.textMuted,
+    fontSize: 11, fontWeight: '400', color: C.textMuted,
     letterSpacing: 2, textTransform: 'uppercase', textAlign: 'center',
   },
 
