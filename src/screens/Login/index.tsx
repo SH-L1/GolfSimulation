@@ -9,10 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEY_SETUP_DONE } from '../LevelSetting';
+import { loginEmail } from '../../api/auth';
+import { ApiError } from '../../api/client';
 
 const C = {
   bg:       '#f8faf8',
@@ -61,8 +65,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw]     = useState(false);
   const [mode, setMode]         = useState<'login' | 'email'>('login');
+  const [authLoading, setAuthLoading] = useState(false);
 
-  // 백엔드 미개발 — setup_done 여부에 따라 LevelSetting 또는 Main 이동
   const goAfterLogin = async () => {
     const done = await AsyncStorage.getItem(STORAGE_KEY_SETUP_DONE);
     if (done === 'true') {
@@ -71,7 +75,22 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       navigation?.replace('LevelSetting', { nextScreen: 'Main' });
     }
   };
-  const handleLogin  = () => { void goAfterLogin(); };
+
+  const handleLogin = async () => {
+    if (!email || !password) { return; }
+    setAuthLoading(true);
+    try {
+      await loginEmail(email, password);
+      await goAfterLogin();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : '로그인 중 오류가 발생했습니다.';
+      Alert.alert('로그인 실패', msg);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // 소셜 로그인: OAuth SDK 토큰 수령 후 실제 연동 예정
   const handleKakao  = () => { void goAfterLogin(); };
   const handleGoogle = () => { void goAfterLogin(); };
   const handleSignUp = () => navigation?.navigate('SignUp');
@@ -211,11 +230,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* 로그인 버튼 */}
               <TouchableOpacity
-                style={[s.loginBtn, !(email && password) && s.loginBtnDisabled]}
-                onPress={handleLogin}
+                style={[s.loginBtn, (!(email && password) || authLoading) && s.loginBtnDisabled]}
+                onPress={() => { void handleLogin(); }}
                 activeOpacity={0.85}
-                disabled={!email || !password}>
-                <Text style={s.loginBtnText}>로그인</Text>
+                disabled={!email || !password || authLoading}>
+                {authLoading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={s.loginBtnText}>로그인</Text>
+                }
               </TouchableOpacity>
             </>
           )}

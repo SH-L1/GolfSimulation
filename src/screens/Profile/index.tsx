@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,16 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { AppHeader } from '../../components/ui/AppHeader';
-
+import { useAuth } from '../../hooks/useAuth';
+import { getSessions } from '../../api/module1';
 import { PLACEHOLDER_URI } from '../../assets';
-
-// TODO: 실제 에셋으로 교체 필요 (src/assets/index.ts 참고)
-const imgAlexThompson = PLACEHOLDER_URI;
 
 const C = {
   bg:        '#f8faf8',
   green:     '#006e1c',
   greenMid:  '#4caf50',
-  greenDark: '#166534',
   surface:   '#ffffff',
   textPri:   '#191c1b',
   textSub:   '#3f4a3c',
@@ -36,12 +34,10 @@ const C = {
   redBorder: 'rgba(186,26,26,0.1)',
 };
 
-const MOCK_USER = {
-  name:     'Alex Thompson',
-  email:    'alex.thompson@fairway.com',
-  level:    'Beginner',
-  handicap: '24.5',
-  sessions: '12',
+const LEVEL_LABEL: Record<string, string> = {
+  beginner:     'Beginner',
+  intermediate: 'Intermediate',
+  advanced:     'Advanced',
 };
 
 const SETTINGS = [
@@ -54,44 +50,70 @@ const SETTINGS = [
 type Props = { navigation?: any };
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
+  const { user, logout } = useAuth();
+  const [totalSessions, setTotalSessions] = useState<number>(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      getSessions(1, 1)
+        .then(res => setTotalSessions(res.total))
+        .catch(() => {});
+    }, []),
+  );
+
+  const handleLogout = () => {
+    Alert.alert('로그아웃', '정말 로그아웃 하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '로그아웃',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          navigation?.navigate('Login');
+        },
+      },
+    ]);
+  };
+
+  const levelLabel = LEVEL_LABEL[user?.experience_level ?? 'beginner'] ?? 'Beginner';
+
   return (
     <View style={s.root}>
       <AppHeader navigation={navigation} />
 
-      {/* 스크롤 본문 */}
       <ScrollView
         style={s.scroll}
         contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}>
 
-        {/* ─── 히어로 프로필 섹션 ─── */}
+        {/* 히어로 프로필 섹션 */}
         <View style={s.hero}>
-          {/* 프로필 사진 + 레벨 뱃지 */}
           <View style={s.profileImgWrap}>
-            <Image source={{ uri: imgAlexThompson }} style={s.profileImg} />
+            <Image
+              source={{ uri: user?.avatarUrl ?? PLACEHOLDER_URI }}
+              style={s.profileImg}
+            />
           </View>
           <View style={s.levelBadge}>
-            <Text style={s.levelText}>{MOCK_USER.level.toUpperCase()}</Text>
+            <Text style={s.levelText}>{levelLabel.toUpperCase()}</Text>
           </View>
 
-          {/* 이름 / 이메일 */}
-          <Text style={s.userName}>{MOCK_USER.name}</Text>
-          <Text style={s.userEmail}>{MOCK_USER.email}</Text>
+          <Text style={s.userName}>{user?.name ?? '...'}</Text>
+          <Text style={s.userEmail}>{user?.email ?? ''}</Text>
 
-          {/* 퀵 스탯 카드 */}
           <View style={s.statsRow}>
             <View style={s.statCard}>
-              <Text style={s.statValueBlue}>{MOCK_USER.handicap}</Text>
+              <Text style={s.statValueBlue}>{user?.handicap ?? '—'}</Text>
               <Text style={s.statLabel}>핸디캡</Text>
             </View>
             <View style={s.statCard}>
-              <Text style={s.statValueGreen}>{MOCK_USER.sessions}</Text>
+              <Text style={s.statValueGreen}>{totalSessions}</Text>
               <Text style={s.statLabel}>총 세션</Text>
             </View>
           </View>
         </View>
 
-        {/* ─── 설정 메뉴 리스트 ─── */}
+        {/* 설정 메뉴 */}
         <View style={s.list}>
           {SETTINGS.map(item => (
             <TouchableOpacity
@@ -120,12 +142,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity
             style={s.logoutRow}
             activeOpacity={0.7}
-            onPress={() =>
-              Alert.alert('로그아웃', '정말 로그아웃 하시겠습니까?', [
-                { text: '취소', style: 'cancel' },
-                { text: '로그아웃', style: 'destructive', onPress: () => {} },
-              ])
-            }>
+            onPress={handleLogout}>
             <View style={s.listLeft}>
               <View style={[s.iconCircle, { backgroundColor: C.iconRed }]}>
                 <Text style={s.iconEmoji}>↪</Text>
@@ -136,7 +153,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* 버전 */}
         <View style={s.versionWrap}>
           <Text style={s.versionText}>HANDY V2.4.0 (BUILD 992)</Text>
         </View>
@@ -144,7 +160,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* FAB */}
       <TouchableOpacity
         style={s.fab}
         onPress={() => navigation?.navigate('SwingChat')}>
@@ -156,12 +171,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-
-  // 스크롤
-  scroll:       { flex: 1 },
+  scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 32, gap: 40 },
 
-  // 히어로
   hero: { alignItems: 'center' },
   profileImgWrap: {
     width: 128, height: 128, borderRadius: 48,
@@ -169,7 +181,6 @@ const s = StyleSheet.create({
     borderWidth: 4, borderColor: '#fff',
     shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.12, shadowRadius: 24, elevation: 10,
-    marginBottom: 0,
   },
   profileImg: { width: '100%', height: '100%' },
   levelBadge: {
@@ -195,7 +206,6 @@ const s = StyleSheet.create({
   statValueGreen: { fontSize: 24, fontWeight: '700', color: C.green, marginBottom: 4 },
   statLabel:      { fontSize: 14, color: C.textSub },
 
-  // 설정 리스트
   list: { gap: 12 },
   listRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -220,14 +230,12 @@ const s = StyleSheet.create({
   },
   logoutLabel: { fontSize: 16, color: C.redText },
 
-  // 버전
   versionWrap: { alignItems: 'center', paddingTop: 8, opacity: 0.8 },
   versionText: {
     fontSize: 11, fontWeight: '400', color: C.textMuted,
     letterSpacing: 2, textTransform: 'uppercase', textAlign: 'center',
   },
 
-  // FAB
   fab: {
     position: 'absolute', right: 24, bottom: 112,
     width: 56, height: 56, borderRadius: 28,

@@ -5,12 +5,15 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { loadChatSessions, SavedChatSession } from '../../hooks/useChatHistory';
+import { getSessions } from '../../api/module1';
+import type { SessionSummary } from '../../types/module1';
 
 const C = {
   bg:          '#f8faf8',
@@ -28,200 +31,156 @@ const C = {
   border:      'rgba(0,110,28,0.1)',
 };
 
-// ─── 목업 데이터 ───────────────────────────────────────────────
-type Metric = { label: string; value: string; color?: string };
-type Session = {
-  id: string;
-  sessionId: string;  // Module1 분석 세션 식별자
-  featured?: boolean;
-  title: string;
-  score: number;
-  date: string;
-  metrics: Metric[];
+// ─── 헬퍼 ──────────────────────────────────────────────────────────
+const CLUB_LABELS: Record<string, string> = {
+  driver: 'Driver',
+  iron:   'Iron',
+};
+const VIEW_LABELS: Record<string, string> = {
+  dtl:     'DTL',
+  face_on: 'Face-On',
+  other:   'Other',
 };
 
-const SESSIONS: Session[] = [
-  {
-    id: '1', sessionId: 'session-mock-001', featured: true,
-    title: 'Driver Power Optimization', score: 92, date: 'Oct 24 • 09:15',
-    metrics: [
-      { label: 'Club',    value: 'Driver' },
-      { label: 'X-Factor', value: '48.2°', color: C.green },
-      { label: 'Tempo',   value: '3.1:1',  color: C.blue },
-      { label: 'Speed',   value: '105mph' },
-    ],
-  },
-  {
-    id: '2', sessionId: 'session-mock-002',
-    title: 'Iron 7 Consistency Check', score: 84, date: 'Oct 22 • 14:30',
-    metrics: [
-      { label: 'Club',    value: 'Iron 7' },
-      { label: 'X-Factor', value: '42.5°', color: C.green },
-      { label: 'Tempo',   value: '3.0:1',  color: C.blue },
-      { label: 'Launch',  value: '18.2°' },
-    ],
-  },
-  {
-    id: '3', sessionId: 'session-mock-003',
-    title: 'Morning Putting Lab', score: 78, date: 'Oct 20 • 08:20',
-    metrics: [
-      { label: 'Club',     value: 'Putter' },
-      { label: 'Tempo',    value: '2.1:1', color: C.blue },
-      { label: 'Face Ang', value: '0.8°',  color: C.green },
-      { label: 'Smash',    value: '1.48' },
-    ],
-  },
-  {
-    id: '4', sessionId: 'session-mock-004',
-    title: 'Hybrid Mid-Range Focus', score: 81, date: 'Oct 18 • 16:45',
-    metrics: [
-      { label: 'Club',    value: 'Hybrid' },
-      { label: 'X-Factor', value: '44.1°', color: C.green },
-      { label: 'Tempo',   value: '3.0:1',  color: C.blue },
-      { label: 'Spin',    value: '3200' },
-    ],
-  },
-  {
-    id: '5', sessionId: 'session-mock-005',
-    title: 'Iron 9 Pitching Session', score: 88, date: 'Oct 15 • 11:00',
-    metrics: [
-      { label: 'Club',     value: 'Iron 9' },
-      { label: 'X-Factor', value: '40.5°', color: C.green },
-      { label: 'Tempo',    value: '2.8:1', color: C.blue },
-      { label: 'Accuracy', value: '94%' },
-    ],
-  },
-];
+function sessionTitle(s: SessionSummary): string {
+  const club = CLUB_LABELS[s.clubType] ?? s.clubType;
+  const view = VIEW_LABELS[s.viewType] ?? s.viewType;
+  return `${club} ${view} Analysis`;
+}
 
-// ─── AI 채팅 탭 목업 데이터 ────────────────────────────────────
-type AiCard = {
-  id: string;
-  chatSessionId: string;  // Module2 채팅 세션 식별자
-  title: string;
-  badge: string;
-  badgeBg: string;
-  badgeText: string;
-  desc: string;
-  date: string;
-};
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+      ' • ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  } catch {
+    return iso;
+  }
+}
 
-const AI_PINNED = {
-  title: '슬라이스 교정 방법',
-  preview: '회원님의 최근 드라이버 스윙 데이터를 바탕으로 아웃-인 궤도를 수정하는 3…',
-  date: '2026.03.04',
-  time: '14:30',
-};
+// ─── 서브 컴포넌트 ──────────────────────────────────────────────────
 
-const AI_CARDS: AiCard[] = [
-  {
-    id: '1', chatSessionId: 'chat-mock-001', title: 'X-Factor 개선 드릴', badge: 'TECHNICAL',
-    badgeBg: '#eceeec', badgeText: '#6f7a6b',
-    desc: '상하체 분리 회전을 위한 트레이닝 루틴 제안',
-    date: '2026.03.02 09:15',
-  },
-  {
-    id: '2', chatSessionId: 'chat-mock-002', title: '퍼팅 라인 읽기 전략', badge: 'STRATEGY',
-    badgeBg: '#d1e4ff', badgeText: 'rgba(51,160,253,0.8)',
-    desc: '그린 경사도 파악 및 에임 포인트 설정 가이드',
-    date: '2026.02.28 17:45',
-  },
-  {
-    id: '3', chatSessionId: 'chat-mock-003', title: '비거리 향상을 위한 지면 반력', badge: 'POWER',
-    badgeBg: '#ffd9e2', badgeText: '#690034',
-    desc: '수직항력을 활용한 헤드 스피드 증강 비결',
-    date: '2026.02.25 11:20',
-  },
-];
+interface SessionCardProps {
+  item:     SessionSummary;
+  featured: boolean;
+  onPress:  (sessionId: string) => void;
+}
 
-// ─── 서브 컴포넌트 ──────────────────────────────────────────────
+const SessionCard: React.FC<SessionCardProps> = ({ item, featured, onPress }) => {
+  const chips = [
+    { label: 'Club', value: CLUB_LABELS[item.clubType] ?? item.clubType, color: undefined },
+    { label: 'View', value: VIEW_LABELS[item.viewType] ?? item.viewType, color: C.blue },
+    { label: 'Score', value: `${item.overallScore}`, color: item.overallScore >= 80 ? C.green : undefined },
+  ];
 
-/** 스윙 세션 카드 */
-const SessionCard: React.FC<{ item: Session; onPress: (sessionId: string) => void }> = ({ item, onPress }) => (
-  <TouchableOpacity
-    style={[s.card, item.featured && s.cardFeatured]}
-    activeOpacity={0.75}
-    onPress={() => onPress(item.sessionId)}>
-    {/* 상단: 타이틀 + 점수 */}
-    <View style={s.cardTop}>
-      <View style={s.cardTitleRow}>
-        {item.featured ? (
-          <View style={s.featuredBadge}>
-            <Text style={s.featuredBadgeText}>FEATURED</Text>
-          </View>
-        ) : (
-          <View style={s.dot} />
-        )}
-        <Text style={s.cardTitle} numberOfLines={1}>{item.title}</Text>
-      </View>
-      <View style={s.scoreWrap}>
-        <Text style={s.scoreNum}>{item.score}</Text>
-        <Text style={s.scoreDenom}>/100</Text>
-      </View>
-    </View>
-    <Text style={s.cardDate}>{item.date.toUpperCase()}</Text>
-
-    {/* 하단: 메트릭 4개 */}
-    <View style={s.metricsRow}>
-      {item.metrics.map(m => (
-        <View key={m.label} style={[s.metricChip, item.featured && s.metricChipFeatured]}>
-          <Text style={s.metricLabel}>{m.label.toUpperCase()}</Text>
-          <Text style={[s.metricValue, m.color ? { color: m.color } : null]}>
-            {m.value}
-          </Text>
+  return (
+    <TouchableOpacity
+      style={[s.card, featured && s.cardFeatured]}
+      activeOpacity={0.75}
+      onPress={() => onPress(item.sessionId)}>
+      <View style={s.cardTop}>
+        <View style={s.cardTitleRow}>
+          {featured ? (
+            <View style={s.featuredBadge}>
+              <Text style={s.featuredBadgeText}>LATEST</Text>
+            </View>
+          ) : (
+            <View style={s.dot} />
+          )}
+          <Text style={s.cardTitle} numberOfLines={1}>{sessionTitle(item)}</Text>
         </View>
-      ))}
-    </View>
-  </TouchableOpacity>
-);
+        <View style={s.scoreWrap}>
+          <Text style={s.scoreNum}>{item.overallScore}</Text>
+          <Text style={s.scoreDenom}>/100</Text>
+        </View>
+      </View>
+      <Text style={s.cardDate}>{formatDate(item.analyzedAt).toUpperCase()}</Text>
 
-// ─── 메인 화면 ──────────────────────────────────────────────────
+      <View style={s.metricsRow}>
+        {chips.map(chip => (
+          <View key={chip.label} style={[s.metricChip, featured && s.metricChipFeatured]}>
+            <Text style={s.metricLabel}>{chip.label.toUpperCase()}</Text>
+            <Text style={[s.metricValue, chip.color ? { color: chip.color } : null]}>
+              {chip.value}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── 메인 화면 ──────────────────────────────────────────────────────
 type Props = { navigation?: any };
 
+const PAGE_SIZE = 20;
+
 export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
-  const [activeTab, setActiveTab] = useState<'swing' | 'ai'>('swing');
-  const [searchText, setSearchText] = useState('');
+  const [activeTab, setActiveTab]     = useState<'swing' | 'ai'>('swing');
+  const [searchText, setSearchText]   = useState('');
   const [aiSearchText, setAiSearchText] = useState('');
-  const [aiSortAsc, setAiSortAsc] = useState(false);
-  const [savedChats, setSavedChats] = useState<SavedChatSession[]>([]);
+  const [aiSortAsc, setAiSortAsc]     = useState(false);
+
+  // ── Swing sessions state ──────────────────────────────────────────
+  const [sessions, setSessions]       = useState<SessionSummary[]>([]);
+  const [swingLoading, setSwingLoading] = useState(false);
+  const [swingError, setSwingError]   = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // ── AI chat state ─────────────────────────────────────────────────
+  const [savedChats, setSavedChats]   = useState<SavedChatSession[]>([]);
+
+  const fetchSessions = useCallback(async (page: number, append = false) => {
+    if (page === 1) { setSwingLoading(true); setSwingError(null); }
+    else { setLoadingMore(true); }
+    try {
+      const res = await getSessions(page, PAGE_SIZE);
+      setSessions(prev => append ? [...prev, ...res.sessions] : res.sessions);
+      setTotalCount(res.total);
+      setCurrentPage(res.page);
+    } catch (e: any) {
+      setSwingError(e?.message ?? '세션을 불러오지 못했습니다.');
+    } finally {
+      setSwingLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
+      fetchSessions(1);
       loadChatSessions().then(setSavedChats);
-    }, []),
+    }, [fetchSessions]),
   );
 
+  const handleLoadMore = () => {
+    if (loadingMore || sessions.length >= totalCount) { return; }
+    fetchSessions(currentPage + 1, true);
+  };
+
+  // ── Swing 필터링 ──────────────────────────────────────────────────
   const filtered = searchText
-    ? SESSIONS.filter(s => s.title.toLowerCase().includes(searchText.toLowerCase()))
-    : SESSIONS;
+    ? sessions.filter(s =>
+        sessionTitle(s).toLowerCase().includes(searchText.toLowerCase()) ||
+        (CLUB_LABELS[s.clubType] ?? s.clubType).toLowerCase().includes(searchText.toLowerCase()),
+      )
+    : sessions;
 
-  // 저장된 실제 채팅 + 목업 카드 합치기 (실제 기록 우선)
-  const mergedAiCards: AiCard[] = [
-    ...savedChats.map(s => ({
-      id:            `saved-${s.chatSessionId}`,
-      chatSessionId: s.chatSessionId,
-      title:         s.title,
-      badge:         s.badge as string,
-      badgeBg:       s.badgeBg,
-      badgeText:     s.badgeText,
-      desc:          s.preview,
-      date:          s.date,
-    })),
-    ...AI_CARDS.filter(c => !savedChats.some(s => s.chatSessionId === c.chatSessionId)),
-  ];
-
+  // ── AI 채팅 필터링 + 정렬 ─────────────────────────────────────────
   const filteredAi = React.useMemo(() => {
     let list = aiSearchText
-      ? mergedAiCards.filter(c =>
+      ? savedChats.filter(c =>
           c.title.toLowerCase().includes(aiSearchText.toLowerCase()) ||
-          c.desc.toLowerCase().includes(aiSearchText.toLowerCase()),
+          c.preview.toLowerCase().includes(aiSearchText.toLowerCase()),
         )
-      : [...mergedAiCards];
+      : [...savedChats];
     list.sort((a, b) => {
       const cmp = a.date.localeCompare(b.date);
       return aiSortAsc ? cmp : -cmp;
     });
     return list;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiSearchText, aiSortAsc, savedChats]);
 
   return (
@@ -267,25 +226,53 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
                   placeholderTextColor={C.textMuted}
                 />
               </View>
-              <TouchableOpacity style={s.filterBtn}>
-                <Text style={s.filterIcon}>⇅</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.filterBtn}>
-                <Text style={s.filterIcon}>≡</Text>
+              <TouchableOpacity style={s.filterBtn} onPress={() => fetchSessions(1)}>
+                <Text style={s.filterIcon}>↺</Text>
               </TouchableOpacity>
             </View>
 
-            {/* ─── 세션 카드 리스트 ─── */}
-            <View style={s.feed}>
-              {filtered.map(item => (
-                <SessionCard
-                  key={item.id}
-                  item={item}
-                  onPress={(sessionId) => navigation?.navigate('SwingFeedback', { sessionId })}
-                />
-              ))}
-            </View>
+            {/* ─── 로딩 / 에러 / 세션 카드 ─── */}
+            {swingLoading ? (
+              <View style={s.centerState}>
+                <ActivityIndicator color={C.green} size="large" />
+              </View>
+            ) : swingError ? (
+              <View style={s.centerState}>
+                <Text style={s.errorText}>{swingError}</Text>
+                <TouchableOpacity style={s.retryBtn} onPress={() => fetchSessions(1)}>
+                  <Text style={s.retryBtnText}>다시 시도</Text>
+                </TouchableOpacity>
+              </View>
+            ) : filtered.length === 0 ? (
+              <View style={s.centerState}>
+                <Text style={s.emptyText}>스윙 기록이 없습니다.</Text>
+                <Text style={s.emptySubText}>영상을 업로드하면 분석 결과가 여기 나타납니다.</Text>
+              </View>
+            ) : (
+              <View style={s.feed}>
+                {filtered.map((item, i) => (
+                  <SessionCard
+                    key={item.sessionId}
+                    item={item}
+                    featured={i === 0}
+                    onPress={(sessionId) => navigation?.navigate('SwingFeedback', { sessionId })}
+                  />
+                ))}
 
+                {/* Load More */}
+                {sessions.length < totalCount && !searchText && (
+                  <TouchableOpacity
+                    style={s.loadMoreBtn}
+                    onPress={handleLoadMore}
+                    disabled={loadingMore}>
+                    {loadingMore
+                      ? <ActivityIndicator color={C.green} size="small" />
+                      : <Text style={s.loadMoreText}>더 보기 ({totalCount - sessions.length}개 남음)</Text>
+                    }
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </>
         ) : (
           /* ─── AI 채팅 탭 ─── */
@@ -307,36 +294,25 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => setAiSortAsc(v => !v)}>
                 <Text style={s.filterIcon}>⇅</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.filterBtn}>
-                <Text style={s.filterIcon}>≡</Text>
-              </TouchableOpacity>
             </View>
 
-            {/* 핀된 세션 카드 */}
-            <TouchableOpacity
-              style={s.pinnedCard}
-              activeOpacity={0.75}
-              onPress={() => navigation?.navigate('SwingChat', { chatSessionId: 'chat-pinned-001' })}>
-              <View style={s.pinnedTop}>
-                <View style={s.pinnedLeft}>
-                  <View style={s.pinnedAvatarWrap}>
-                    <Text style={s.pinnedAvatarIcon}>🤖</Text>
-                  </View>
-                  <View style={s.newBadge}>
-                    <Text style={s.newBadgeText}>NEW</Text>
-                  </View>
-                </View>
-                <Text style={s.pinnedChevron}>›</Text>
+            {/* 새 채팅 CTA (채팅 없을 때) */}
+            {filteredAi.length === 0 && (
+              <View style={s.centerState}>
+                <Text style={s.emptyText}>AI 채팅 기록이 없습니다.</Text>
+                <Text style={s.emptySubText}>스윙 분석 후 AI 코치와 대화해보세요.</Text>
+                <TouchableOpacity
+                  style={s.retryBtn}
+                  onPress={() => navigation?.navigate('SwingChat', {})}>
+                  <Text style={s.retryBtnText}>새 채팅 시작</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={s.pinnedTitle}>{AI_PINNED.title}</Text>
-              <Text style={s.pinnedPreview} numberOfLines={2}>{AI_PINNED.preview}</Text>
-              <Text style={s.pinnedDate}>{AI_PINNED.date} · {AI_PINNED.time}</Text>
-            </TouchableOpacity>
+            )}
 
             {/* AI 히스토리 카드 리스트 */}
             {filteredAi.map(card => (
               <TouchableOpacity
-                key={card.id}
+                key={card.chatSessionId}
                 style={s.aiHistCard}
                 activeOpacity={0.75}
                 onPress={() => navigation?.navigate('SwingChat', { chatSessionId: card.chatSessionId })}>
@@ -346,7 +322,7 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={[s.catBadgeText, { color: card.badgeText }]}>{card.badge}</Text>
                   </View>
                 </View>
-                <Text style={s.aiHistDesc}>{card.desc}</Text>
+                <Text style={s.aiHistDesc}>{card.preview}</Text>
                 <View style={s.aiHistBottom}>
                   <View style={s.aiHistAvatars}>
                     <View style={[s.miniAvatar, s.miniAvatarAi]}>
@@ -361,10 +337,11 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             ))}
 
-            {/* 끝 상태 */}
-            <View style={s.endState}>
-              <Text style={s.endStateText}>End of recent history</Text>
-            </View>
+            {filteredAi.length > 0 && (
+              <View style={s.endState}>
+                <Text style={s.endStateText}>End of recent history</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -387,11 +364,7 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 16 },
 
-  // 히어로 (타이틀 + 세그먼트)
   heroSection: { gap: 16, paddingBottom: 8 },
-  pageTitle: {
-    fontSize: 30, fontWeight: '700', color: C.textPri, letterSpacing: -0.75,
-  },
   segControl: {
     flexDirection: 'row', gap: 4,
     backgroundColor: C.segBg,
@@ -409,7 +382,6 @@ const s = StyleSheet.create({
   segText:       { fontSize: 16, color: C.textSub },
   segTextActive: { color: C.green, fontWeight: '700' },
 
-  // 검색바
   searchRow: { flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 16 },
   searchWrap: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
@@ -423,13 +395,10 @@ const s = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: C.segBg, justifyContent: 'center', alignItems: 'center',
   },
-  filterIcon:       { fontSize: 16, color: C.textSub },
+  filterIcon: { fontSize: 16, color: C.textSub },
 
-
-  // 피드
   feed: { gap: 12, marginBottom: 24 },
 
-  // 세션 카드
   card: {
     backgroundColor: C.surface, borderRadius: 32, padding: 16, gap: 8,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
@@ -444,19 +413,16 @@ const s = StyleSheet.create({
   cardTitle: { fontSize: 12, fontWeight: '700', color: C.textPri, flex: 1 },
   cardDate: { fontSize: 10, color: C.textMuted, letterSpacing: 0.3, marginTop: -4 },
 
-  // Featured 뱃지
   featuredBadge: {
     backgroundColor: C.green, borderRadius: 16,
     paddingHorizontal: 8, paddingVertical: 2, flexShrink: 0,
   },
   featuredBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
 
-  // 점수
   scoreWrap: { flexDirection: 'row', alignItems: 'flex-end', flexShrink: 0 },
   scoreNum:   { fontSize: 18, fontWeight: '700', color: C.green, lineHeight: 20 },
   scoreDenom: { fontSize: 10, color: C.textMuted, lineHeight: 14, marginBottom: 1 },
 
-  // 메트릭 칩 4개
   metricsRow: { flexDirection: 'row', gap: 8 },
   metricChip: {
     flex: 1, backgroundColor: C.chipBgFaint,
@@ -466,33 +432,25 @@ const s = StyleSheet.create({
   metricLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase' },
   metricValue: { fontSize: 12, fontWeight: '700', color: C.textPri },
 
+  // 로딩/에러/빈 상태
+  centerState: { alignItems: 'center', paddingVertical: 48, gap: 12 },
+  errorText:   { fontSize: 14, color: '#ba1a1a', textAlign: 'center' },
+  emptyText:   { fontSize: 15, fontWeight: '700', color: C.textPri },
+  emptySubText: { fontSize: 13, color: C.textMuted, textAlign: 'center', paddingHorizontal: 24 },
+  retryBtn:    { backgroundColor: C.green, borderRadius: 999, paddingHorizontal: 24, paddingVertical: 10 },
+  retryBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  // Load More
+  loadMoreBtn: {
+    alignItems: 'center', paddingVertical: 14,
+    backgroundColor: C.surface, borderRadius: 24,
+    borderWidth: 1, borderColor: C.border,
+  },
+  loadMoreText: { fontSize: 14, fontWeight: '600', color: C.green },
+
   // AI 채팅 탭 피드
   aiFeed: { gap: 12, marginBottom: 8 },
 
-  // 핀된 카드 (흰 배경, 부각)
-  pinnedCard: {
-    backgroundColor: C.surface, borderRadius: 32, padding: 20, gap: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
-  },
-  pinnedTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  pinnedLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pinnedAvatarWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#0061a4', justifyContent: 'center', alignItems: 'center',
-  },
-  pinnedAvatarIcon: { fontSize: 18 },
-  newBadge: {
-    backgroundColor: C.green, borderRadius: 999,
-    paddingHorizontal: 10, paddingVertical: 3,
-  },
-  newBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
-  pinnedChevron: { fontSize: 22, color: C.textMuted },
-  pinnedTitle:   { fontSize: 16, fontWeight: '700', color: C.textPri },
-  pinnedPreview: { fontSize: 13, color: C.textSub, lineHeight: 18 },
-  pinnedDate:    { fontSize: 11, color: C.textMuted },
-
-  // AI 히스토리 카드 (회색 bg)
   aiHistCard: {
     backgroundColor: C.chipBgFaint, borderRadius: 24, padding: 18, gap: 8,
   },
@@ -514,11 +472,9 @@ const s = StyleSheet.create({
   miniAvatarIcon:    { fontSize: 13 },
   aiHistDate: { fontSize: 11, color: C.textMuted },
 
-  // 끝 상태
   endState: { alignItems: 'center', paddingVertical: 24, opacity: 0.4 },
   endStateText: { fontSize: 13, color: C.textMuted },
 
-  // FAB
   fab: {
     position: 'absolute', right: 24, bottom: 96,
     width: 56, height: 56, borderRadius: 28,

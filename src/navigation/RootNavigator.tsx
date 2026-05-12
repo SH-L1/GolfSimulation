@@ -12,21 +12,10 @@ import { SwingFeedbackScreen } from '../screens/SwingFeedback';
 import { SwingChatScreen } from '../screens/SwingChat';
 import { Viewer3DScreen } from '../screens/Viewer3D';
 import { ProfileScreen } from '../screens/Profile';
+import { navigationRef } from './navigationRef';
+import type { RootStackParamList } from './types';
 
-export type RootStackParamList = {
-  Onboarding: undefined;
-  LevelSetting: { nextScreen?: string } | undefined;
-  Login: undefined;
-  SignUp: undefined;
-  Main: undefined;
-  // sessionId: Module1 분석 세션 식별자 (POST /module1/analyze 결과)
-  SwingFeedback: { sessionId: string } | undefined;
-  // chatSessionId: Module2 채팅 세션 (DELETE /module2/history/{id})
-  // sessionId: 연결된 스윙 분석 세션 (컨텍스트 제공용)
-  SwingChat: { chatSessionId?: string; sessionId?: string; title?: string } | undefined;
-  Viewer3D: { sessionId?: string } | undefined;
-  Profile: undefined;
-};
+export type { RootStackParamList };
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -34,6 +23,10 @@ export const RootNavigator: React.FC = () => {
   const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
 
   useEffect(() => {
+    if (__DEV__) {
+      setInitialRoute('Onboarding');
+      return;
+    }
     AsyncStorage.getItem(STORAGE_KEY_SETUP_DONE).then(value => {
       setInitialRoute(value === 'true' ? 'Main' : 'Onboarding');
     });
@@ -48,7 +41,7 @@ export const RootNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName={initialRoute}
         screenOptions={{ headerShown: false }}>

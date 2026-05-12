@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,17 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { AppHeader } from '../../components/ui/AppHeader';
-
+import { useAuth } from '../../hooks/useAuth';
+import { getSessions } from '../../api/module1';
+import type { SessionSummary } from '../../api/module1';
 import { PLACEHOLDER_URI } from '../../assets';
 
-// TODO: 실제 에셋으로 교체 필요 (src/assets/index.ts 참고)
 const imgCaddyCharacter = PLACEHOLDER_URI;
-const imgSwingThumbnail = PLACEHOLDER_URI;
 
 const C = {
   bg:            '#f8faf8',
@@ -30,27 +32,55 @@ const C = {
   textSecondary: '#3f4a3c',
   textMuted:     '#78716c',
   textFaint:     '#a8a29e',
-  navInactive:   '#9ca3af',
   shadow:        'rgba(0,0,0,0.05)',
 };
 
-// 목업 데이터
-const MOCK_USER = { name: '박민준', level: '초보' };
-const MOCK_SWING = {
-  date: '2026-03-04',
-  score: 65,
-  power: 72,
-  tempo: 58,
-  summary: 'Good overall, but focus on the X-Factor at the top phase.',
+const LEVEL_LABEL: Record<string, string> = {
+  beginner:     '초보',
+  intermediate: '중급',
+  advanced:     '고급',
 };
-const MOCK_STATS = [
-  { label: 'Consistency', value: '82%', delta: '+5%', deltaColor: C.green, progress: 0.82, barColor: C.green },
-  { label: 'Avg Speed',   value: '94',  unit: 'mph',  delta: undefined, deltaColor: undefined, progress: 0.65, barColor: C.blue },
-];
+
+const VIEW_LABEL: Record<string, string> = {
+  dtl:     'DTL',
+  face_on: 'Face On',
+  other:   '기타',
+};
+
+const CLUB_LABEL: Record<string, string> = {
+  driver: 'Driver',
+  iron:   'Iron',
+};
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 type Props = { navigation?: any };
 
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
+  const { user } = useAuth();
+  const [latestSession, setLatestSession] = useState<SessionSummary | null>(null);
+  const [totalSessions, setTotalSessions] = useState<number>(0);
+  const [sessionLoading, setSessionLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      setSessionLoading(true);
+      getSessions(1, 1)
+        .then(res => {
+          setLatestSession(res.sessions[0] ?? null);
+          setTotalSessions(res.total);
+        })
+        .catch(() => {})
+        .finally(() => setSessionLoading(false));
+    }, []),
+  );
+
+  const levelLabel  = LEVEL_LABEL[user?.experience_level ?? 'beginner'] ?? '초보';
+  const scoreProgress = ((latestSession?.overallScore ?? 0) / 100);
+
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <AppHeader navigation={navigation} />
@@ -63,10 +93,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         {/* 히어로 인사 카드 */}
         <View style={s.heroCard}>
           <View style={s.heroText}>
-            <Text style={s.heroGreeting}>안녕하세요, {MOCK_USER.name}</Text>
+            <Text style={s.heroGreeting}>안녕하세요, {user?.name ?? '...'}</Text>
             <Text style={s.heroSub}>오늘 더 멋진 스윙을 할 준비가{'\n'}되셨나요?</Text>
             <View style={s.levelBadge}>
-              <Text style={s.levelText} maxFontSizeMultiplier={1.2}>{MOCK_USER.level}</Text>
+              <Text style={s.levelText} maxFontSizeMultiplier={1.2}>{levelLabel}</Text>
             </View>
           </View>
           <View style={s.heroCharacterWrap}>
@@ -77,7 +107,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* 퀵 액션 그리드 */}
         <View style={s.quickGrid}>
-          {/* 스윙 기록하기 — 전체 너비 */}
           <TouchableOpacity
             style={s.btnRecord}
             activeOpacity={0.85}
@@ -89,7 +118,6 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={s.btnRecordArrow}>→</Text>
           </TouchableOpacity>
 
-          {/* 영상 업로드 + AI 코칭 — 나란히 */}
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <TouchableOpacity
               style={s.btnSmall}
@@ -117,40 +145,61 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={s.section}>
           <View style={s.sectionHeader}>
             <Text style={s.sectionTitle}>최근 스윙</Text>
-            <Text style={s.sectionDate}>{MOCK_SWING.date}</Text>
+            {latestSession && (
+              <Text style={s.sectionDate}>{formatDate(latestSession.analyzedAt)}</Text>
+            )}
           </View>
-          <TouchableOpacity
-            style={s.swingCard}
-            activeOpacity={0.8}
-            onPress={() => navigation?.navigate('SwingFeedback', { sessionId: 'session-mock-001' })}>
 
-            {/* 썸네일 */}
-            <View style={s.swingThumb}>
-              <Image source={{ uri: imgSwingThumbnail }} style={s.swingThumbImg} />
-              {/* 점수 뱃지 */}
-              <View style={s.scoreBadge}>
-                <Text style={s.scoreBadgeLabel} maxFontSizeMultiplier={1.2}>SCORE</Text>
-                <Text style={s.scoreBadgeValue} maxFontSizeMultiplier={1.2}>{MOCK_SWING.score}</Text>
-              </View>
-              {/* 하단 태그 */}
-              <View style={s.thumbTags}>
-                <View style={s.thumbTag}>
-                  <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>POWER: {MOCK_SWING.power}</Text>
-                </View>
-                <View style={s.thumbTag}>
-                  <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>TEMPO: {MOCK_SWING.tempo}</Text>
-                </View>
-              </View>
+          {sessionLoading ? (
+            <View style={s.swingCardEmpty}>
+              <ActivityIndicator color={C.green} />
             </View>
-            {/* 분석 요약 */}
-            <View style={s.swingAnalysis}>
-              <View style={s.analysisBullet} />
-              <View style={{ flex: 1 }}>
-                <Text style={s.analysisLabel}>분석 요약</Text>
-                <Text style={s.analysisSummary}>{MOCK_SWING.summary}</Text>
+          ) : latestSession ? (
+            <TouchableOpacity
+              style={s.swingCard}
+              activeOpacity={0.8}
+              onPress={() => navigation?.navigate('SwingFeedback', { sessionId: latestSession.sessionId })}>
+              <View style={s.swingThumb}>
+                <Image
+                  source={{ uri: latestSession.thumbnailUrl ?? PLACEHOLDER_URI }}
+                  style={s.swingThumbImg}
+                />
+                <View style={s.scoreBadge}>
+                  <Text style={s.scoreBadgeLabel} maxFontSizeMultiplier={1.2}>SCORE</Text>
+                  <Text style={s.scoreBadgeValue} maxFontSizeMultiplier={1.2}>{latestSession.overallScore}</Text>
+                </View>
+                <View style={s.thumbTags}>
+                  <View style={s.thumbTag}>
+                    <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>
+                      {CLUB_LABEL[latestSession.clubType] ?? latestSession.clubType}
+                    </Text>
+                  </View>
+                  <View style={s.thumbTag}>
+                    <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>
+                      {VIEW_LABEL[latestSession.viewType] ?? latestSession.viewType}
+                    </Text>
+                  </View>
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
+              <View style={s.swingAnalysis}>
+                <View style={s.analysisBullet} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.analysisLabel}>분석 요약</Text>
+                  <Text style={s.analysisSummary}>
+                    {`${CLUB_LABEL[latestSession.clubType] ?? latestSession.clubType} · ${VIEW_LABEL[latestSession.viewType] ?? latestSession.viewType} 뷰 분석 완료. 상세 피드백을 확인하세요.`}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={s.swingCardEmpty}
+              activeOpacity={0.8}
+              onPress={() => navigation?.navigate('SwingUpload')}>
+              <Text style={s.emptyIcon}>🎥</Text>
+              <Text style={s.emptyText}>첫 스윙을 기록해보세요</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* 오늘의 프로 팁 */}
@@ -160,8 +209,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={s.tipTitle}>Today's Pro Tip</Text>
           </View>
           <Text style={s.tipBody}>
-            <Text style={{ fontWeight: '700' }}>Beginners:</Text>
-            {" Don't worry about distance.\nFocus on keeping your lead arm straight during the backswing."}
+            <Text style={{ fontWeight: '700' }}>{levelLabel}:</Text>
+            {" 정확한 어드레스 자세가 좋은 스윙의 시작입니다.\n리드 암을 곧게 유지하며 백스윙을 해보세요."}
           </Text>
           <TouchableOpacity
             style={s.tipBtn}
@@ -175,25 +224,33 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.statsScroll}>
-          {MOCK_STATS.map(stat => (
-            <View key={stat.label} style={s.statCard}>
-              <Text style={s.statLabel} maxFontSizeMultiplier={1.2}>{stat.label.toUpperCase()}</Text>
-              <View style={s.statValueRow}>
-                <Text style={s.statValue} maxFontSizeMultiplier={1.2}>{stat.value}</Text>
-                {stat.unit && <Text style={s.statUnit} maxFontSizeMultiplier={1.2}>{stat.unit}</Text>}
-                {stat.delta && <Text style={[s.statDelta, { color: stat.deltaColor }]} maxFontSizeMultiplier={1.2}>{stat.delta}</Text>}
-              </View>
-              <View style={s.statBarBg}>
-                <View style={[s.statBarFill, { width: `${stat.progress * 100}%`, backgroundColor: stat.barColor }]} />
-              </View>
+          <View style={s.statCard}>
+            <Text style={s.statLabel} maxFontSizeMultiplier={1.2}>BEST SCORE</Text>
+            <View style={s.statValueRow}>
+              <Text style={s.statValue} maxFontSizeMultiplier={1.2}>
+                {latestSession?.overallScore ?? '—'}
+              </Text>
+              {latestSession && <Text style={s.statUnit} maxFontSizeMultiplier={1.2}>pts</Text>}
             </View>
-          ))}
+            <View style={s.statBarBg}>
+              <View style={[s.statBarFill, { width: `${scoreProgress * 100}%`, backgroundColor: C.green }]} />
+            </View>
+          </View>
+          <View style={s.statCard}>
+            <Text style={s.statLabel} maxFontSizeMultiplier={1.2}>SESSIONS</Text>
+            <View style={s.statValueRow}>
+              <Text style={s.statValue} maxFontSizeMultiplier={1.2}>{totalSessions}</Text>
+              <Text style={s.statUnit} maxFontSizeMultiplier={1.2}>회</Text>
+            </View>
+            <View style={s.statBarBg}>
+              <View style={[s.statBarFill, { width: `${Math.min(totalSessions / 50, 1) * 100}%`, backgroundColor: C.blue }]} />
+            </View>
+          </View>
         </ScrollView>
 
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* FAB — AI 채팅 */}
       <TouchableOpacity
         style={s.fab}
         activeOpacity={0.85}
@@ -206,11 +263,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 8, gap: 24 },
 
-  // 히어로 카드
   heroCard: {
     backgroundColor: C.greenLight,
     borderRadius: 28,
@@ -240,7 +295,6 @@ const s = StyleSheet.create({
   },
   heroCharacter: { width: 80, height: 80, resizeMode: 'contain' },
 
-  // 퀵 액션
   quickGrid: { gap: 12 },
   btnRecord: {
     flexDirection: 'row',
@@ -249,7 +303,6 @@ const s = StyleSheet.create({
     borderRadius: 28,
     padding: 18,
     backgroundColor: C.green,
-    // gradient 대체: 단색
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
@@ -265,7 +318,6 @@ const s = StyleSheet.create({
   btnRecordLabel: { flex: 1, fontSize: 17, fontWeight: '600', color: '#fff' },
   btnRecordArrow: { fontSize: 18, color: '#fff' },
 
-  btnSmallRow: { flexDirection: 'row', gap: 12 },
   btnSmall: {
     flex: 1,
     backgroundColor: C.surface,
@@ -284,11 +336,11 @@ const s = StyleSheet.create({
   },
   btnSmallLabel: { fontSize: 13, fontWeight: '400', color: C.textPrimary },
 
-  // 최근 스윙
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 4 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
   sectionDate: { fontSize: 12, color: C.textMuted },
+
   swingCard: {
     backgroundColor: C.surface,
     borderRadius: 28,
@@ -299,6 +351,22 @@ const s = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  swingCardEmpty: {
+    backgroundColor: C.surface,
+    borderRadius: 28,
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  emptyIcon: { fontSize: 28 },
+  emptyText: { fontSize: 14, color: C.textMuted },
+
   swingThumb: { height: 192, position: 'relative' },
   swingThumbImg: { width: '100%', height: '100%', resizeMode: 'cover' },
   scoreBadge: {
@@ -332,7 +400,6 @@ const s = StyleSheet.create({
   analysisLabel: { fontSize: 10, fontWeight: '700', color: C.textPrimary, letterSpacing: 0.6, marginBottom: 4, textTransform: 'uppercase' },
   analysisSummary: { fontSize: 13, color: C.textSecondary, lineHeight: 19 },
 
-  // 프로 팁
   tipCard: {
     backgroundColor: C.blueLight,
     borderLeftWidth: 4,
@@ -348,7 +415,6 @@ const s = StyleSheet.create({
   tipBtn: { marginTop: 4 },
   tipBtnText: { fontSize: 11, fontWeight: '700', color: C.blue, letterSpacing: -0.3 },
 
-  // 통계
   statsScroll: { gap: 14, paddingBottom: 4 },
   statCard: {
     width: 140,
@@ -366,11 +432,9 @@ const s = StyleSheet.create({
   statValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   statValue: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
   statUnit: { fontSize: 11, color: C.textMuted, fontWeight: '400' },
-  statDelta: { fontSize: 11, fontWeight: '600' },
   statBarBg: { height: 4, backgroundColor: '#f5f5f4', borderRadius: 999, overflow: 'hidden' },
   statBarFill: { height: '100%', borderRadius: 999 },
 
-  // FAB
   fab: {
     position: 'absolute',
     right: 22,

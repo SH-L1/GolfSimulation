@@ -12,8 +12,10 @@ import {
 import { launchImageLibrary } from 'react-native-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../../components/ui/AppHeader';
-import { ViewType } from '../../hooks/useSwingAnalysis';
+import type { ViewType, ClubType } from '../../hooks/useSwingAnalysis';
 import { usePolling } from '../../hooks/usePolling';
+import { useSwingAnalysis } from '../../hooks/useSwingAnalysis';
+import { ApiError } from '../../api/client';
 
 import { PLACEHOLDER_URI } from '../../assets';
 
@@ -40,8 +42,8 @@ const C = {
 };
 
 const CLUBS = ['드라이버', '아이언'];
+const CLUB_TYPES: ClubType[]    = ['driver', 'iron'];
 const ANGLES = ['측면 (DTL)', '정면', '후면'];
-// API view_type 매핑 (아키텍처 5.2절)
 const ANGLE_VIEW_TYPES: ViewType[] = ['dtl', 'face_on', 'other'];
 const TIMELINE_MARKS = ['0:00', '0:02', '0:04', '0:06', '0:08', '0:10'];
 
@@ -55,16 +57,17 @@ const POLL_STATUS_LABEL: Record<string, string> = {
 };
 
 export const SwingUploadScreen: React.FC<Props> = ({ navigation }) => {
-  const [selectedClub, setSelectedClub] = useState(0);
+  const [selectedClub, setSelectedClub]   = useState(0);
   const [selectedAngle, setSelectedAngle] = useState(0);
-  const [angleOpen, setAngleOpen] = useState(false);
-  const [videoUri, setVideoUri] = useState<string | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [angleOpen, setAngleOpen]         = useState(false);
+  const [videoUri, setVideoUri]           = useState<string | null>(null);
+  const [jobId, setJobId]                 = useState<string | null>(null);
 
+  const { uploading, uploadError, analyze } = useSwingAnalysis();
   const { status: pollStatus, sessionId: pollSessionId, error: pollError } = usePolling(jobId);
-  const isAnalyzing = jobId !== null && pollStatus !== 'done' && pollStatus !== 'error';
+  const isAnalyzing = uploading || (jobId !== null && pollStatus !== 'done' && pollStatus !== 'error');
 
-  // Navigate when polling completes
+  // 폴링 완료 시 결과 화면으로 이동
   useEffect(() => {
     if (pollStatus === 'done' && pollSessionId) {
       setJobId(null);
@@ -76,12 +79,27 @@ export const SwingUploadScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, [pollStatus, pollSessionId, pollError, navigation]);
 
-  const handleAnalyze = () => {
-    // TODO: POST /module1/analyze { video_uri, view_type } 후 응답의 job_id 사용
-    void videoUri;
-    void ANGLE_VIEW_TYPES[selectedAngle];
-    const mockJobId = 'job-' + Date.now();
-    setJobId(mockJobId);
+  // 업로드 오류 표시
+  useEffect(() => {
+    if (uploadError) {
+      const msg = uploadError.includes('ApiError') || uploadError.includes('UNAUTHORIZED')
+        ? '로그인이 필요합니다.'
+        : uploadError;
+      Alert.alert('업로드 오류', msg);
+    }
+  }, [uploadError]);
+
+  const handleAnalyze = async () => {
+    if (!videoUri) {
+      Alert.alert('영상 선택 필요', '분석할 영상을 먼저 선택해 주세요.');
+      return;
+    }
+    const id = await analyze({
+      videoUri,
+      viewType:  ANGLE_VIEW_TYPES[selectedAngle],
+      clubType:  CLUB_TYPES[selectedClub],
+    });
+    if (id) { setJobId(id); }
   };
 
   const handlePickFile = () => {
@@ -225,7 +243,7 @@ export const SwingUploadScreen: React.FC<Props> = ({ navigation }) => {
               style={[s.btnPrimary, isAnalyzing && { opacity: 0.7 }]}
               activeOpacity={0.85}
               disabled={isAnalyzing}
-              onPress={handleAnalyze}>
+              onPress={() => { void handleAnalyze(); }}>
               {isAnalyzing
                 ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

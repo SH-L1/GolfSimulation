@@ -9,6 +9,9 @@ android/app/.cxx/
 .gradle/
 *.iml
 
+# Android 머신별 로컬 설정 (SDK 경로 등)
+android/local.properties
+
 # iOS 빌드 결과물
 ios/build/
 ios/Pods/
@@ -16,6 +19,9 @@ ios/DerivedData/
 
 # Ruby / CocoaPods
 vendor/bundle/
+
+# Unity 빌드 결과물 (Unity 팀이 별도 관리)
+Unity_PT/
 
 # 기타
 coverage/
