@@ -37,6 +37,15 @@ namespace GolfSimulation.Core
         [SerializeField][Range(0f, 0.6f)] private float armFreezeVisThreshold = 0.35f;
         [SerializeField][Range(90f, 160f)] private float maxElbowAngle = 140f;
 
+        [Header("Constrained Arm IK")]
+        [Tooltip("팔꿈치/손목 좌표 방향을 직접 FK로 쓰지 않고, 손목 target + 팔꿈치 hint 기반 IK로 팔을 풉니다.")]
+        [SerializeField] private bool useConstrainedArmIK = true;
+        [Tooltip("Constrained IK 사용 시 팔 FK를 건너뛰어 뒤접힘/꼬임을 줄입니다.")]
+        [SerializeField] private bool skipArmFKWhenUsingIK = true;
+        [SerializeField][Range(0f, 1f)] private float constrainedArmIKWeight = 1f;
+        [Tooltip("데이터 landmark는 손이 아니라 손목이므로, 전완 방향으로 이동한 가상 그립점을 손 제약에 사용합니다.")]
+        [SerializeField][Range(0f, 0.2f)] private float wristToGripOffset = 0.075f;
+
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
 
@@ -204,8 +213,11 @@ namespace GolfSimulation.Core
             Vector3 savedHipsPos = hipsCache.bone != null ? hipsCache.bone.position : Vector3.zero;
 
             ApplyFKInternal(refFrame, loader);
+            if (useConstrainedArmIK)
+                ApplyConstrainedArmIK(refFrame, loader, solveRightArm: true);
 
-            gripOffsetLocal = leftHandBone.InverseTransformPoint(rightHandBone.position);
+            Vector3 rightGripPoint = EstimateGripPoint(rightHandBone, rightLowerArmCache.bone);
+            gripOffsetLocal = leftHandBone.InverseTransformPoint(rightGripPoint);
             gripOffsetCaptured = true;
 
             for (int i = 0; i < trackedBones.Length; i++)
@@ -318,10 +330,13 @@ namespace GolfSimulation.Core
             if (headCache.bone != null && headUp.sqrMagnitude > 0.001f)
                 ApplyAimTwist(ref headCache, headUp, earRight);
 
-            ApplyLimb(ref leftUpperArmCache, lShoulder, lElbow);
-            ApplyLimb(ref leftLowerArmCache, lElbow, lWrist);
-            ApplyLimb(ref rightUpperArmCache, rShoulder, rElbow);
-            ApplyLimb(ref rightLowerArmCache, rElbow, rWrist);
+            if (!useConstrainedArmIK || !skipArmFKWhenUsingIK)
+            {
+                ApplyLimb(ref leftUpperArmCache, lShoulder, lElbow);
+                ApplyLimb(ref leftLowerArmCache, lElbow, lWrist);
+                ApplyLimb(ref rightUpperArmCache, rShoulder, rElbow);
+                ApplyLimb(ref rightLowerArmCache, rElbow, rWrist);
+            }
 
             ApplyLimb(ref leftUpperLegCache, lHip, lKnee);
             ApplyLimb(ref leftLowerLegCache, lKnee, lAnkle);
@@ -329,7 +344,7 @@ namespace GolfSimulation.Core
             ApplyLimb(ref rightLowerLegCache, rKnee, rAnkle);
         }
 
-        public void ApplyPose(PoseFrame frame, PoseDataLoader loader, string phase)
+        public void ApplyPose(PoseFrame frame, PoseDataLoader loader, string phase, int frameIndex = 0)
         {
             if (!isInitialized || frame == null) return;
 
@@ -337,16 +352,19 @@ namespace GolfSimulation.Core
 
             ApplyFKInternal(frame, loader);
 
+            bool gripActive = enableGripCoupling && gripOffsetCaptured && currentGripWeight > 0.01f;
+            if (useConstrainedArmIK)
+                ApplyConstrainedArmIK(frame, loader, solveRightArm: !gripActive);
+
             if (enableArmProtection)
                 ApplyArmProtection(frame, loader);
 
-            bool gripActive = enableGripCoupling && gripOffsetCaptured && currentGripWeight > 0.01f;
             if (gripActive)
                 ApplyGripCoupling();
 
             if (ikController != null)
             {
-                ikController.SkipArms = gripActive;
+                ikController.SkipArms = gripActive || useConstrainedArmIK;
                 ikController.Apply(frame, loader, DataToAvatarSpace, sourceToAvatarScale);
             }
 
@@ -409,7 +427,8 @@ namespace GolfSimulation.Core
             if (leftHandBone == null || rightUpperArmCache.bone == null ||
                 rightLowerArmCache.bone == null || rightHandBone == null) return;
 
-            Vector3 coupledTarget = leftHandBone.TransformPoint(gripOffsetLocal);
+            Vector3 coupledGripTarget = leftHandBone.TransformPoint(gripOffsetLocal);
+            Vector3 coupledTarget = coupledGripTarget - EstimateGripOffset(rightHandBone, rightLowerArmCache.bone);
             Vector3 hint = rightLowerArmCache.bone.position;
 
             Quaternion fkUpperRot = rightUpperArmCache.bone.rotation;
@@ -427,6 +446,66 @@ namespace GolfSimulation.Core
                 rightUpperArmCache.bone.rotation = Quaternion.Slerp(fkUpperRot, rightUpperArmCache.bone.rotation, currentGripWeight);
                 rightLowerArmCache.bone.rotation = Quaternion.Slerp(fkLowerRot, rightLowerArmCache.bone.rotation, currentGripWeight);
             }
+        }
+
+        private void ApplyConstrainedArmIK(PoseFrame frame, PoseDataLoader loader, bool solveRightArm)
+        {
+            SolveArmFromWristTarget(
+                leftUpperArmCache.bone, leftLowerArmCache.bone, leftHandBone,
+                loader.GetLandmarkPosition(frame, "left_wrist"),
+                loader.GetLandmarkPosition(frame, "left_elbow"));
+
+            if (solveRightArm)
+            {
+                SolveArmFromWristTarget(
+                    rightUpperArmCache.bone, rightLowerArmCache.bone, rightHandBone,
+                    loader.GetLandmarkPosition(frame, "right_wrist"),
+                    loader.GetLandmarkPosition(frame, "right_elbow"));
+            }
+        }
+
+        private void SolveArmFromWristTarget(Transform upper, Transform lower, Transform hand,
+                                             Vector3 wristData, Vector3 elbowData)
+        {
+            if (upper == null || lower == null || hand == null) return;
+
+            Quaternion fkUpper = upper.rotation;
+            Quaternion fkLower = lower.rotation;
+
+            Vector3 wristAvatar = DataToAvatarSpace(wristData);
+            Vector3 elbowAvatar = DataToAvatarSpace(elbowData);
+
+            Vector3 target = hipsRestPosition
+                + (wristAvatar - addressPelvisOffset) * sourceToAvatarScale * positionScale;
+            Vector3 hint = hipsRestPosition
+                + (elbowAvatar - addressPelvisOffset) * sourceToAvatarScale * positionScale;
+
+            TwoBoneIKSolver.Solve(upper, lower, hand, target, hint);
+
+            if (constrainedArmIKWeight < 0.999f)
+            {
+                upper.rotation = Quaternion.Slerp(fkUpper, upper.rotation, constrainedArmIKWeight);
+                lower.rotation = Quaternion.Slerp(fkLower, lower.rotation, constrainedArmIKWeight);
+            }
+        }
+
+        private Vector3 EstimateGripPoint(Transform hand, Transform lowerArm)
+        {
+            if (hand == null) return Vector3.zero;
+            return hand.position + EstimateGripOffset(hand, lowerArm);
+        }
+
+        private Vector3 EstimateGripOffset(Transform hand, Transform lowerArm)
+        {
+            if (hand == null) return Vector3.zero;
+
+            Vector3 dir;
+            if (lowerArm != null && (hand.position - lowerArm.position).sqrMagnitude > 0.000001f)
+                dir = (hand.position - lowerArm.position).normalized;
+            else
+                dir = hand.forward;
+
+            return dir * wristToGripOffset;
         }
 
         private void HandleFinishPhase(PoseFrame frame, PoseDataLoader loader, string phase)

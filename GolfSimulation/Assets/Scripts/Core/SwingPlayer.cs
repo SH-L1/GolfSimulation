@@ -46,6 +46,7 @@ namespace GolfSimulation.Core
         public int TotalFrames => dataLoader != null && dataLoader.IsLoaded ? dataLoader.Sequence.total_frames : 0;
         public bool IsPlaying => isPlaying;
         public string CurrentPhase => currentPhase;
+        public float PlaybackSpeedValue { get => playbackSpeed; set => playbackSpeed = Mathf.Clamp(value, 0.1f, 3f); }
         public bool EnableInterpolation { get => enableInterpolation; set => enableInterpolation = value; }
         public bool EnableFilter { get => enableFilter; set => enableFilter = value; }
         public float FilterMinCutoff { get => filterMinCutoff; set => filterMinCutoff = value; }
@@ -166,7 +167,7 @@ namespace GolfSimulation.Core
 
             if (frame != null && frame.has_pose)
             {
-                boneMapper.ApplyPose(frame, dataLoader, currentPhase);
+                boneMapper.ApplyPose(frame, dataLoader, currentPhase, currentFrameIndex);
             }
         }
 
@@ -206,6 +207,36 @@ namespace GolfSimulation.Core
             return interpolatedFrame;
         }
 
+        /// <summary>
+        /// dataLoader가 새 파일을 로딩한 뒤 호출.
+        /// BoneMapper / PoseFilter 를 새 데이터 기준으로 재초기화하고 재생 시작.
+        /// </summary>
+        public void ReinitializeWithLoader()
+        {
+            if (!ValidateReferences()) return;
+
+            playbackTime = 0f;
+            currentFrameIndex = 0;
+            currentPhase = "";
+
+            if (enablePoseCorrection)
+            {
+                PoseCorrector corrector = GetComponent<PoseCorrector>();
+                if (corrector != null)
+                    corrector.PreprocessSequence(dataLoader.Sequence);
+            }
+
+            PoseFrame referenceFrame = dataLoader.GetAddressFrame() ?? dataLoader.GetFrame(0);
+            boneMapper.Initialize(targetAnimator, referenceFrame, dataLoader);
+
+            frameDuration = 1f / dataLoader.Sequence.fps;
+            poseFilter = new PoseFilter(dataLoader.Sequence.keypoint_names,
+                filterMinCutoff, filterBeta, filterDCutoff);
+
+            Play();
+            Debug.Log($"[SwingPlayer] ReinitializeWithLoader 완료 — {TotalFrames}프레임");
+        }
+
         public void Play()
         {
             isPlaying = true;
@@ -240,7 +271,7 @@ namespace GolfSimulation.Core
             PoseFrame frame = dataLoader.GetFrame(currentFrameIndex);
             if (frame != null && frame.has_pose)
             {
-                boneMapper.ApplyPose(frame, dataLoader, currentPhase);
+                boneMapper.ApplyPose(frame, dataLoader, currentPhase, currentFrameIndex);
             }
         }
 

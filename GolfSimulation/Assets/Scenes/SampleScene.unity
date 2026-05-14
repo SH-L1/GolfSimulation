@@ -388,6 +388,122 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &453720799
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 453720801}
+  - component: {fileID: 453720800}
+  m_Layer: 0
+  m_Name: SwingController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &453720800
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 453720799}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b268177f7f6482e458d6ecc1f65087b4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GolfSimulation.Core.SwingSimulationController
+  swingPlayer: {fileID: 572169720}
+  dataLoader: {fileID: 572169722}
+  showDebugInfo: 1
+--- !u!4 &453720801
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 453720799}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.02024, y: 0, z: 1.40357}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &515596313
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+      propertyPath: m_Name
+      value: SamplingAnimator
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
 --- !u!1001 &572169717
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -465,10 +581,13 @@ PrefabInstance:
       addedObject: {fileID: 572169727}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 41201264849fe594db70dd858e6b30e4, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 572169729}
+      addedObject: {fileID: 572169731}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 41201264849fe594db70dd858e6b30e4, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 572169728}
+      addedObject: {fileID: 572169730}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 41201264849fe594db70dd858e6b30e4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 572169733}
   m_SourcePrefab: {fileID: 100100000, guid: 41201264849fe594db70dd858e6b30e4, type: 3}
 --- !u!1 &572169718 stripped
 GameObject:
@@ -517,6 +636,7 @@ MonoBehaviour:
   filterMinCutoff: 1
   filterBeta: 0.007
   filterDCutoff: 1
+  enablePoseCorrection: 1
   showDebugInfo: 1
 --- !u!114 &572169721
 MonoBehaviour:
@@ -536,10 +656,15 @@ MonoBehaviour:
   chestWeight: 0.55
   upperChestWeight: 0.85
   ikController: {fileID: 0}
+  hybridBlender: {fileID: 572169730}
   enableGripCoupling: 1
   enableSmoothing: 1
   enableFinishBlend: 1
   finishVisThreshold: 0.5
+  finishHoldTime: 0.5
+  enableArmProtection: 1
+  armFreezeVisThreshold: 0.35
+  maxElbowAngle: 140
   showDebugInfo: 1
 --- !u!114 &572169722
 MonoBehaviour:
@@ -554,6 +679,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GolfSimulation.Data.PoseDataLoader
   fileName: golf_swing_pose.json
+  poseCache: {fileID: 0}
 --- !u!114 &572169727
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -568,7 +694,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GolfSimulation.IK.IKController
   highThreshold: 0.7
   lowThreshold: 0.3
---- !u!114 &572169728
+--- !u!114 &572169730
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -577,23 +703,30 @@ MonoBehaviour:
   m_GameObject: {fileID: 572169718}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9aef3bbd99d3f0447a11ca8190d855b5, type: 3}
+  m_Script: {fileID: 11500000, guid: c972f64542f5c3d4cbd517970e6a70a5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GolfSimulation.Grip.ClubAttachment
-  animator: {fileID: 0}
-  clubModel: {fileID: 0}
-  attachBone: 17
-  positionOffset: {x: 0.02, y: 0.08, z: 0.02}
-  rotationOffset: {x: 0, y: 0, z: 90}
-  createProcedural: 1
-  shaftLength: 1.1
-  shaftDiameter: 0.012
-  gripLength: 0.28
-  gripDiameter: 0.022
-  headSize: {x: 0.09, y: 0.02, z: 0.065}
-  headAngle: 12
-  headOffsetX: 0.035
---- !u!114 &572169729
+  m_EditorClassIdentifier: Assembly-CSharp::GolfSimulation.Core.HybridBlender
+  sampler: {fileID: 572169731}
+  enableMotionPrior: 0
+  baseCoreBlend: 0.3
+  baseArmBlend: 0.45
+  baseLegBlend: 0.15
+  disableDriveDuringSetup: 1
+  addressDriveMultiplier: 0.2
+  toeUpDriveMultiplier: 1
+  triggerVisThreshold: 0.4
+  maxUnreliableBlend: 0.9
+  maxJumpPerFrame: 0.16
+  maxWristSeparation: 0.22
+  finishCoreBlend: 0.55
+  finishArmBlend: 0.95
+  finishLegBlend: 0.25
+  blendCore: 1
+  blendLeftArm: 1
+  blendRightArm: 0
+  blendLegs: 1
+  showDebugInfo: 1
+--- !u!114 &572169731
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -602,27 +735,42 @@ MonoBehaviour:
   m_GameObject: {fileID: 572169718}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d84ebab5307e244438a7ac92ec34acfb, type: 3}
+  m_Script: {fileID: 11500000, guid: 8453ca7630d60474980505f4a4993f18, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GolfSimulation.Grip.GripController
-  animator: {fileID: 0}
-  enableGrip: 1
-  fingerCurlAxis: {x: 0, y: 0, z: -1}
-  thumbCurlAxis: {x: 0, y: 0, z: -1}
-  leftThumbCurl: 25
-  leftIndexCurl: 65
-  leftMiddleCurl: 75
-  leftRingCurl: 80
-  leftLittleCurl: 85
-  rightThumbCurl: 30
-  rightIndexCurl: 55
-  rightMiddleCurl: 70
-  rightRingCurl: 75
-  rightLittleCurl: 85
-  spreadPerFinger: 3
-  proximalWeight: 0.7
-  intermediateWeight: 0.9
-  distalWeight: 0.5
+  m_EditorClassIdentifier: Assembly-CSharp::GolfSimulation.Core.ReferenceAnimationSampler
+  referenceClip: {fileID: -203655887218126122, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+  samplingAnimator: {fileID: 1386071100}
+  sampleCount: 120
+  clipAddress: 0.05
+  clipToeUp: 0.18
+  clipMidBackswing: 0.3
+  clipTop: 0.45
+  clipMidDownswing: 0.6
+  clipImpact: 0.68
+  clipMidFollow: 0.8
+  clipFinish: 0.95
+--- !u!114 &572169733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 572169718}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 316503fbc21c8124db93280c0be27174, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GolfSimulation.Correction.PoseCorrector
+  enableDepthClamping: 1
+  maxArmBehindShoulder: 0.2
+  enableGripConstraint: 1
+  maxWristSeparation: 0.2
+  elbowFollowWeight: 0.35
+  enableJumpRejection: 1
+  maxJumpPerFrame: 0.18
+  hardClampThreshold: 1.5
+  extrapolationBlend: 0.15
+  showStats: 1
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
@@ -717,119 +865,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2134522624
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
+--- !u!95 &1386071100 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: 9e4916716a3ed514b955c99f31eb6f2b, type: 3}
+  m_PrefabInstance: {fileID: 515596313}
   m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2134522628}
-  - component: {fileID: 2134522627}
-  - component: {fileID: 2134522626}
-  - component: {fileID: 2134522625}
-  m_Layer: 0
-  m_Name: Plane
-  m_TagString: Ground
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!64 &2134522625
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2134522624}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &2134522626
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2134522624}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RayTracingAccelStructBuildFlagsOverride: 0
-  m_RayTracingAccelStructBuildFlags: 1
-  m_SmallMeshCulling: 1
-  m_ForceMeshLod: -1
-  m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_MaskInteraction: 0
-  m_AdditionalVertexStreams: {fileID: 0}
---- !u!33 &2134522627
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2134522624}
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
---- !u!4 &2134522628
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2134522624}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.22943, y: -0, z: 0.68071}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -839,4 +879,5 @@ SceneRoots:
   - {fileID: 832575519}
   - {fileID: 572169717}
   - {fileID: 928390761}
-  - {fileID: 2134522628}
+  - {fileID: 515596313}
+  - {fileID: 453720801}

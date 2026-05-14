@@ -341,17 +341,35 @@ Unity IK 솔버를 활용하여 말단(wrist, ankle) 기반의 정밀한 관절 
 - [x] visibility 가중치 + 시간 가중치 `max()` 조합 → 자연스러운 ease-in
 - [x] `finishHoldTime` 파라미터로 페이드-인 속도 조절
 
-#### D. 참조 애니메이션 블렌딩 (Mixamo AnimationClip 필요)
-- [ ] Mixamo에서 Y-Bot Golf Swing `AnimationClip` 다운로드 (`Assets/Animations/` 배치)
-- [ ] `ReferenceAnimationSampler.cs` — SwingNet 8이벤트 타임스탬프와 클립 시간 매핑
-- [ ] `HybridBlender.cs` — 키포인트 포즈 + 참조 애니메이션 본별 가중치 블렌딩
-- [ ] face_on 자기가림 구간(left arm vis < 0.4) 자동 감지 → 참조 비율 상승 적용
+#### D. Drive Motion Prior 블렌딩 (실험 기능, 기본 비활성)
+- [x] Mixamo `Y Bot@Golf Drive.fbx`를 `Assets/Animations/`에 배치
+- [x] `ReferenceAnimationSampler.cs` — SwingNet 8이벤트 타임스탬프와 Drive 클립 시간 매핑
+- [x] 팔 4본 전용 샘플링 → Hips/Spine/Chest/Head/Arms/Legs 주요 본 샘플링으로 확장
+- [x] `HybridBlender.cs` — Drive 모션을 기본 prior로 상시 블렌딩
+- [x] visibility, 손목 분리, 프레임 점프, 팔꿈치 각도 기반 부위별 신뢰도 계산
+- [x] 저신뢰도 구간은 해당 부위 Drive 비중 자동 상승 (`maxUnreliableBlend`)
+- [x] finish / mid_follow_through 구간은 팔 Drive 비중 강제 상승
+- [x] `BoneMapper.ApplyPose` 시그니처에 `frameIndex`와 `phase` 전달 → Motion Prior 연동
+- [x] 개별 스윙 재현 목표와 충돌 가능성이 있어 `enableMotionPrior = false` 기본값으로 비활성화
+
+#### E. 데이터 기반 자기 보정 파이프라인 (Drive 대체 방향)
+- [x] 외부 Drive 모션 대신 해당 스윙 데이터 내부의 신뢰 가능한 프레임만 사용
+- [x] `PoseCorrector`에 Sequence Arm Stabilization 추가
+  - visibility, 프레임 점프, face_on depth 조건으로 팔꿈치/손목 신뢰도 판정
+  - 저신뢰도 구간은 같은 스윙의 전후 신뢰 프레임으로 보간
+  - 팔꿈치/손목 moving average 스무딩 및 face_on Z 제한 적용
+- [x] `BoneMapper`에 Constrained Arm IK 추가
+  - 팔 FK를 기본적으로 건너뛰고 손목 target + 팔꿈치 hint 기반 TwoBoneIK로 팔 적용
+  - 기존 `IKController` 팔 IK와 중복되지 않도록 `SkipArms` 연동
+- [ ] 양손 그립, 발 접지, 척추 twist 범위를 더 강한 hard/soft constraint로 확장
+- [ ] Play Mode에서 `sequenceJumpThreshold`, `smoothingBlend`, `constrainedArmIKWeight` 튜닝
 
 ### 산출물
-- `BoneMapper.cs` 수정 (A, B, C 통합)
-- `ReferenceAnimationSampler.cs` (D 구현 시)
-- `HybridBlender.cs` (D 구현 시)
-- 팔 꺾임 제거 + finish 구간 자연스러운 포즈 유지
+- `BoneMapper.cs` 수정 (A, B, C + Drive Motion Prior 인터페이스 통합)
+- `ReferenceAnimationSampler.cs` ✅ 전신 주요 본 샘플링으로 확장
+- `HybridBlender.cs` ✅ Motion Prior 실험 기능으로 유지하되 기본 비활성화
+- `PoseCorrector.cs` ✅ 스윙 데이터 내부 기준 시퀀스 안정화 추가
+- 목표: 여러 입력 스윙 데이터의 개별 차이를 유지하면서, 비정상 관절 붕괴는 데이터 내부 보간과 제약 기반 IK로 억제
 
 ---
 
@@ -368,20 +386,26 @@ Unity IK 솔버를 활용하여 말단(wrist, ankle) 기반의 정밀한 관절 
   - 메모리: 포즈 데이터 메모리 풋프린트 확인
 
 - [ ] 최적화
-  - JSON 데이터 사전 파싱하여 ScriptableObject 또는 바이너리 캐시로 변환
-  - 프레임별 계산을 Job System / Burst Compiler로 병렬화
-  - LOD 설정 (카메라 거리 기반 메시 단순화)
+  - [x] JSON 데이터 → `PoseDataCache` ScriptableObject 바이너리 캐시 (`Window → Golf Simulation → Rebuild Pose Cache`)
+  - [x] `PoseDataLoader`에 캐시 우선 로딩 추가 (캐시 없으면 JSON 폴백)
+  - [ ] 프레임별 계산을 Job System / Burst Compiler로 병렬화
+  - [ ] LOD 설정 (카메라 거리 기반 메시 단순화)
 
-- [ ] UaaL 통합 준비
-  - Unity를 라이브러리로 빌드하는 설정
-  - 네이티브 앱과의 인터페이스 정의 (데이터 입력, 재생 제어)
+- [x] UaaL 통합 준비
+  - [x] `SwingSimulationController.cs` — Play/Pause/Stop/SeekFrame/LoadSwingData/SetPlaybackSpeed
+  - [x] `PoseDataLoader.LoadFromFile()` — 런타임 파일 교체 API
+  - [x] `SwingPlayer.ReinitializeWithLoader()` — 재로딩 후 BoneMapper/Filter 재초기화
+  - [x] `UnitySendMessage` 인터페이스 문서화 (Swift / Kotlin 예시 포함)
+  - [ ] Unity Player Settings — UaaL 빌드 설정 (사용자 작업 필요)
+    - iOS: Build → Export as XCFramework
+    - Android: Build → Export Project
 
 - [ ] 모바일 빌드 테스트 (Android / iOS)
 
 ### 산출물
-- 모바일 60fps 안정 구동
-- UaaL 빌드 설정 완료
-- 네이티브 앱 연동 인터페이스
+- [x] `SwingSimulationController.cs` — UaaL 퍼블릭 API
+- [ ] 모바일 60fps 안정 구동 (빌드 후 확인 필요)
+- [ ] UaaL 빌드 설정 완료 (사용자 Player Settings 작업 필요)
 
 ---
 
