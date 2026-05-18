@@ -1,0 +1,2 @@
+class ChatRepository:
+    pass

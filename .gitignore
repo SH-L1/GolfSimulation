@@ -5,3 +5,17 @@ datalization/datalization/pose_landmarker_heavy.task
 /llama_model
 datalization/datalization/golf_swing_step4_swingnet.zip
 datalization/datalization/code1.py
+/backend/app/__pycache__
+/backend/app/api/__pycache__
+/backend/app/db/__pycache__
+/backend/app/core/__pycache__
+/backend/app/module1/__pycache__
+/backend/app/module2/__pycache__
+/backend/app/module3/__pycache__
+/backend/app/storage/__pycache__
+/backend/app/workers/__pycache__
+backend/Dockerfile
+backend/mkfile.py
+backend/README.md
+/backend/tests
+makedir.py
