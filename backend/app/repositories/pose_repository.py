@@ -1,0 +1,2 @@
+class PoseRepository:
+    pass

@@ -1,0 +1,2 @@
+class SessionRepository:
+    pass
