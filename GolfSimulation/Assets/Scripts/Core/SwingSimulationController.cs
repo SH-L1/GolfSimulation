@@ -33,6 +33,7 @@ namespace GolfSimulation.Core
         [Header("References")]
         [SerializeField] private SwingPlayer swingPlayer;
         [SerializeField] private PoseDataLoader dataLoader;
+        [SerializeField] private SwingCameraController cameraController;
 
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
@@ -76,6 +77,8 @@ namespace GolfSimulation.Core
                 swingPlayer = FindFirstObjectByType<SwingPlayer>();
             if (dataLoader == null)
                 dataLoader = FindFirstObjectByType<PoseDataLoader>();
+            if (cameraController == null)
+                cameraController = FindFirstObjectByType<SwingCameraController>();
         }
 
         private void Start()
@@ -159,6 +162,24 @@ namespace GolfSimulation.Core
                 swingPlayer.SetFrame(frame);
                 Debug.Log($"[SwingCtrl] SeekFrame = {frame}");
             }
+        }
+
+        public void SetCameraView(string view)
+        {
+            cameraController?.SetCameraView(view);
+            Debug.Log($"[SwingCtrl] SetCameraView = {view}");
+        }
+
+        public void NextCameraView(string _ = "")
+        {
+            cameraController?.NextCameraView();
+            Debug.Log("[SwingCtrl] NextCameraView");
+        }
+
+        public void ResetCameraView(string _ = "")
+        {
+            cameraController?.ResetToRearView();
+            Debug.Log("[SwingCtrl] ResetCameraView");
         }
 
         /// <summary>

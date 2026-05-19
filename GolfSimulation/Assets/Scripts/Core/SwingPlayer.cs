@@ -127,6 +127,7 @@ namespace GolfSimulation.Core
                 if (loop)
                 {
                     playbackTime = 0f;
+                    framePos = 0f;
                     frameA = 0;
                     if (poseFilter != null) poseFilter.Reset();
                     boneMapper.ResetPostProcessState();

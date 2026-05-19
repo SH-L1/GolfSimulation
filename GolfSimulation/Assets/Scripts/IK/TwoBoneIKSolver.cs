@@ -30,19 +30,21 @@ namespace GolfSimulation.IK
             // root → target 방향 및 거리
             Vector3 rootToTarget = targetPos - root.position;
             float targetDist = rootToTarget.magnitude;
+            if (targetDist < 0.0001f) return;
 
             // 도달 불가 시 클램프 (완전 펴짐 / 완전 접힘 방지)
             float maxReach = upperLen + lowerLen - 0.001f;
             float minReach = Mathf.Abs(upperLen - lowerLen) + 0.001f;
-            targetDist = Mathf.Clamp(targetDist, minReach, maxReach);
+            float clampedTargetDist = Mathf.Clamp(targetDist, minReach, maxReach);
 
             // root → target 방향 (클램프 후)
             Vector3 targetDir = rootToTarget.normalized;
+            Vector3 reachableTargetPos = root.position + targetDir * clampedTargetDist;
 
             // === 1단계: root 각도 계산 (Law of Cosines) ===
             // root에서의 각도: upper 변과 target 변 사이
-            float cosRoot = (upperLen * upperLen + targetDist * targetDist - lowerLen * lowerLen)
-                            / (2f * upperLen * targetDist);
+            float cosRoot = (upperLen * upperLen + clampedTargetDist * clampedTargetDist - lowerLen * lowerLen)
+                            / (2f * upperLen * clampedTargetDist);
             cosRoot = Mathf.Clamp(cosRoot, -1f, 1f);
             float rootAngleRad = Mathf.Acos(cosRoot);
 
@@ -77,7 +79,7 @@ namespace GolfSimulation.IK
             // === 4단계: mid 본 회전 ===
             // root 회전 후 tip 위치가 변경되었으므로, mid→tip이 target을 향하도록 회전
             Vector3 currentLowerDir = (tip.position - mid.position).normalized;
-            Vector3 desiredLowerDir = (targetPos - mid.position).normalized;
+            Vector3 desiredLowerDir = (reachableTargetPos - mid.position).normalized;
             Quaternion midDelta = Quaternion.FromToRotation(currentLowerDir, desiredLowerDir);
             mid.rotation = midDelta * mid.rotation;
         }

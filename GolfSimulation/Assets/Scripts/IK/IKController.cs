@@ -28,6 +28,7 @@ namespace GolfSimulation.IK
         private float lastLeftLegWeight, lastRightLegWeight;
 
         public bool SkipArms { get; set; }
+        public bool SkipLegs { get; set; }
 
         public void Initialize(Animator animator)
         {
@@ -102,6 +103,15 @@ namespace GolfSimulation.IK
                 lastLeftArmWeight = 0f;
                 lastRightArmVis = 0f;
                 lastRightArmWeight = 0f;
+            }
+
+            if (SkipLegs)
+            {
+                lastLeftLegVis = 0f;
+                lastLeftLegWeight = 0f;
+                lastRightLegVis = 0f;
+                lastRightLegWeight = 0f;
+                return;
             }
 
             float leftAnkleVis = loader.GetLandmarkVisibility(frame, "left_ankle");
