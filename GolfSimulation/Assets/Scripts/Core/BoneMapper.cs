@@ -20,20 +20,22 @@ namespace GolfSimulation.Core
 
         [Header("IK")]
         [SerializeField] private IKController ikController;
+        [SerializeField] private bool enableFallbackIK = false;
 
-        [Header("Grip Coupling")]
-        [SerializeField] private bool enableGripCoupling = true;
+        [Header("Coordinate Mapping")]
+        [SerializeField] private Vector3 dataAxisSigns = new Vector3(-1f, 1f, -1f);
+        [SerializeField] private bool enableBodyFrameCalibration = true;
 
         [Header("Rotation Smoothing")]
-        [SerializeField] private bool enableSmoothing = true;
+        [SerializeField] private bool enableSmoothing = false;
 
         [Header("Finish Blend")]
-        [SerializeField] private bool enableFinishBlend = true;
+        [SerializeField] private bool enableFinishBlend = false;
         [SerializeField][Range(0.1f, 0.8f)] private float finishVisThreshold = 0.5f;
         [SerializeField][Range(0.1f, 2f)] private float finishHoldTime = 0.5f;
 
         [Header("Arm Protection")]
-        [SerializeField] private bool enableArmProtection = true;
+        [SerializeField] private bool enableArmProtection = false;
         [SerializeField][Range(0f, 0.6f)] private float armFreezeVisThreshold = 0.35f;
         [SerializeField][Range(90f, 160f)] private float maxElbowAngle = 140f;
 
@@ -43,11 +45,29 @@ namespace GolfSimulation.Core
         [Tooltip("Constrained IK 사용 시 팔 FK를 건너뛰어 뒤접힘/꼬임을 줄입니다.")]
         [SerializeField] private bool skipArmFKWhenUsingIK = true;
         [SerializeField][Range(0f, 1f)] private float constrainedArmIKWeight = 1f;
-        [Tooltip("데이터 landmark는 손이 아니라 손목이므로, 전완 방향으로 이동한 가상 그립점을 손 제약에 사용합니다.")]
-        [SerializeField][Range(0f, 0.2f)] private float wristToGripOffset = 0.075f;
+
+        [Header("Arm Bend Plane")]
+        [SerializeField][Range(0f, 1f)] private float elbowHintDataWeight = 0.45f;
+        [SerializeField][Range(0f, 0.25f)] private float elbowForwardBias = 0.08f;
+        [SerializeField] private bool forceArmsInFrontOfTorso = true;
+        [SerializeField][Range(0f, 0.25f)] private float minArmForwardOffset = 0.07f;
+
+        [Header("Two Hand Pose")]
+        [SerializeField] private bool enableTwoHandGripPose = true;
+        [SerializeField][Range(0.03f, 0.3f)] private float targetHandSeparation = 0.11f;
+        [SerializeField][Range(0f, 1f)] private float gripTargetBlend = 1f;
+        [SerializeField][Range(0f, 1f)] private float handOrientationWeight = 0.65f;
+
+        [Header("Head Stabilization")]
+        [SerializeField] private bool enableHeadStabilization = true;
+        [SerializeField] private bool useHandsAsHeadLookTarget = false;
+        [SerializeField][Range(0f, 1f)] private float neckDataWeight = 0.35f;
+        [SerializeField][Range(0f, 1f)] private float headDataWeight = 0.35f;
+        [SerializeField][Range(10f, 80f)] private float maxHeadAngleFromTorso = 38f;
 
         [Header("Debug")]
-        [SerializeField] private bool showDebugInfo = true;
+        [SerializeField] private bool showDebugInfo = false;
+        [SerializeField] private bool logRetargetDiagnostics = true;
 
         private struct BoneCache
         {
@@ -67,6 +87,7 @@ namespace GolfSimulation.Core
         private BoneCache rightUpperArmCache, rightLowerArmCache;
         private BoneCache leftUpperLegCache, leftLowerLegCache;
         private BoneCache rightUpperLegCache, rightLowerLegCache;
+        private BoneCache leftFootCache, rightFootCache;
 
         private Transform leftHandBone;
         private Transform rightHandBone;
@@ -81,17 +102,44 @@ namespace GolfSimulation.Core
         private Vector3 prevHipsPosition;
         private bool hasPreviousFrame;
 
-        private Vector3 gripOffsetLocal;
-        private bool gripOffsetCaptured;
-
         private Quaternion[] finishRotations;
         private Vector3 finishHipsPosition;
         private bool finishPoseCaptured;
 
         private float currentResponsiveness;
-        private float currentGripWeight;
         private string debugPhase = "";
         private float debugFinishBlend;
+        private bool diagnosticsLogged;
+        private int armTargetClampCount;
+        private Quaternion dataFrameToAvatarFrame = Quaternion.identity;
+        private Vector3 lastShoulderRight = Vector3.right;
+        private Vector3 lastTrunkDir = Vector3.up;
+        private Vector3 lastBodyForward = Vector3.forward;
+        private Vector3 avatarForwardReference = Vector3.forward;
+        private Vector3 lastBodyOrigin = Vector3.zero;
+        private float leftFootForwardSign = 1f;
+        private float rightFootForwardSign = 1f;
+        private Vector3 lastLeftShoulderWorld = Vector3.zero;
+        private Vector3 lastRightShoulderWorld = Vector3.zero;
+
+        private Vector3 sourceRestHipRight = Vector3.right;
+        private Vector3 sourceRestShoulderRight = Vector3.right;
+        private Vector3 sourceRestTrunkDir = Vector3.up;
+        private Vector3 sourceRestNeckDir = Vector3.up;
+        private Vector3 sourceRestHeadForward = Vector3.forward;
+        private Vector3 sourceRestEarRight = Vector3.right;
+        private Vector3 sourceRestLeftUpperArmDir = Vector3.right;
+        private Vector3 sourceRestLeftLowerArmDir = Vector3.right;
+        private Vector3 sourceRestRightUpperArmDir = Vector3.left;
+        private Vector3 sourceRestRightLowerArmDir = Vector3.left;
+        private Vector3 sourceRestLeftUpperLegDir = Vector3.down;
+        private Vector3 sourceRestLeftLowerLegDir = Vector3.down;
+        private Vector3 sourceRestRightUpperLegDir = Vector3.down;
+        private Vector3 sourceRestRightLowerLegDir = Vector3.down;
+        private Vector3 sourceRestLeftFootForward = Vector3.forward;
+        private Vector3 sourceRestLeftFootRight = Vector3.right;
+        private Vector3 sourceRestRightFootForward = Vector3.forward;
+        private Vector3 sourceRestRightFootRight = Vector3.right;
 
         // Arm protection — bone indices in trackedBones array
         private int boneIdxLUA = -1, boneIdxLLA = -1, boneIdxRUA = -1, boneIdxRLA = -1;
@@ -101,8 +149,35 @@ namespace GolfSimulation.Core
 
         private Vector3 DataToAvatarSpace(Vector3 v)
         {
-            return new Vector3(-v.x, v.y, -v.z);
+            Vector3 signed = new Vector3(v.x * dataAxisSigns.x, v.y * dataAxisSigns.y, v.z * dataAxisSigns.z);
+            return dataFrameToAvatarFrame * signed;
         }
+
+        private Vector3 ApplyAxisSigns(Vector3 v)
+        {
+            return new Vector3(v.x * dataAxisSigns.x, v.y * dataAxisSigns.y, v.z * dataAxisSigns.z);
+        }
+
+        public Vector3 ConvertDataToAvatarSpace(Vector3 v)
+        {
+            return DataToAvatarSpace(v);
+        }
+
+        public Vector3 DataPointToAvatarWorld(Vector3 dataPoint)
+        {
+            return AvatarSpacePointToWorld(DataToAvatarSpace(dataPoint));
+        }
+
+        private Vector3 AvatarSpacePointToWorld(Vector3 avatarPoint)
+        {
+            return hipsRestPosition + (avatarPoint - addressPelvisOffset) * sourceToAvatarScale * positionScale;
+        }
+
+        public bool IsInitialized => isInitialized;
+        public Vector3 BodyFrameOrigin => lastBodyOrigin;
+        public Vector3 BodyFrameRight => lastShoulderRight;
+        public Vector3 BodyFrameUp => lastTrunkDir;
+        public Vector3 BodyFrameForward => lastBodyForward;
 
         public void Initialize(Animator targetAnimator, PoseFrame referenceFrame, PoseDataLoader loader)
         {
@@ -134,6 +209,8 @@ namespace GolfSimulation.Core
 
             hipsCache = MakeCache(hipsBone);
             hipsRestPosition = hipsBone != null ? hipsBone.position : Vector3.zero;
+            avatarForwardReference = ResolveAvatarForwardHint(hipsBone);
+            lastBodyForward = avatarForwardReference;
 
             int count = 0;
             if (spineBone != null) count++;
@@ -147,7 +224,7 @@ namespace GolfSimulation.Core
             if (upperChestBone != null) { spineChain[idx] = MakeCache(upperChestBone); spineWeights[idx] = upperChestWeight; idx++; }
 
             neckCache = MakeCache(neckBone);
-            headCache = MakeCache(headBone);
+            headCache = MakeHeadCache(headBone);
 
             leftUpperArmCache = MakeLimbCache(lua, lla);
             leftLowerArmCache = MakeLimbCache(lla, lh);
@@ -158,13 +235,15 @@ namespace GolfSimulation.Core
             leftLowerLegCache = MakeLimbCache(lll, lf);
             rightUpperLegCache = MakeLimbCache(rul, rll);
             rightLowerLegCache = MakeLimbCache(rll, rf);
+            leftFootCache = MakeFootCache(lf);
+            rightFootCache = MakeFootCache(rf);
 
+            CalibrateDataFrame(referenceFrame, loader, hipsBone, chestBone, upperChestBone, lua, rua, lul, rul);
             ComputeScaleFactor(referenceFrame, loader);
             CacheAddressPelvisOffset(loader);
+            CalibrateFootForwardSigns(referenceFrame, loader, lf, rf);
+            CacheSourceRestPose(referenceFrame, loader);
             BuildTrackedBoneArray();
-
-            if (enableGripCoupling)
-                CaptureGripOffset(referenceFrame, loader);
 
             if (ikController == null) ikController = GetComponent<IKController>();
             if (ikController != null) ikController.Initialize(animator);
@@ -172,7 +251,7 @@ namespace GolfSimulation.Core
             animator.enabled = false;
             isInitialized = true;
 
-            Debug.Log($"[BoneMapper] Initialized — scale: {sourceToAvatarScale:F3}, spine: {count}, grip: {gripOffsetCaptured}, addressOffset: {addressPelvisOffset}");
+            Debug.Log($"[BoneMapper] Initialized — scale: {sourceToAvatarScale:F3}, spine: {count}, addressOffset: {addressPelvisOffset}");
         }
 
         private void BuildTrackedBoneArray()
@@ -195,37 +274,14 @@ namespace GolfSimulation.Core
 
             if (leftUpperLegCache.bone  != null) list.Add(leftUpperLegCache.bone);
             if (leftLowerLegCache.bone  != null) list.Add(leftLowerLegCache.bone);
+            if (leftFootCache.bone      != null) list.Add(leftFootCache.bone);
             if (rightUpperLegCache.bone != null) list.Add(rightUpperLegCache.bone);
             if (rightLowerLegCache.bone != null) list.Add(rightLowerLegCache.bone);
+            if (rightFootCache.bone     != null) list.Add(rightFootCache.bone);
 
             trackedBones = list.ToArray();
             prevRotations = new Quaternion[trackedBones.Length];
             finishRotations = new Quaternion[trackedBones.Length];
-        }
-
-        private void CaptureGripOffset(PoseFrame refFrame, PoseDataLoader loader)
-        {
-            if (refFrame == null || leftHandBone == null || rightHandBone == null) return;
-
-            Quaternion[] savedRots = new Quaternion[trackedBones.Length];
-            for (int i = 0; i < trackedBones.Length; i++)
-                savedRots[i] = trackedBones[i].rotation;
-            Vector3 savedHipsPos = hipsCache.bone != null ? hipsCache.bone.position : Vector3.zero;
-
-            ApplyFKInternal(refFrame, loader);
-            if (useConstrainedArmIK)
-                ApplyConstrainedArmIK(refFrame, loader, solveRightArm: true);
-
-            Vector3 rightGripPoint = EstimateGripPoint(rightHandBone, rightLowerArmCache.bone);
-            gripOffsetLocal = leftHandBone.InverseTransformPoint(rightGripPoint);
-            gripOffsetCaptured = true;
-
-            for (int i = 0; i < trackedBones.Length; i++)
-                trackedBones[i].rotation = savedRots[i];
-            if (hipsCache.bone != null)
-                hipsCache.bone.position = savedHipsPos;
-
-            Debug.Log($"[BoneMapper] Grip offset captured: {gripOffsetLocal}");
         }
 
         private void CacheAddressPelvisOffset(PoseDataLoader loader)
@@ -264,6 +320,226 @@ namespace GolfSimulation.Core
             return c;
         }
 
+        private BoneCache MakeFootCache(Transform bone)
+        {
+            BoneCache c = MakeCache(bone);
+            if (bone != null)
+            {
+                c.restUp = bone.rotation * Vector3.forward;
+                c.restAimDir = Vector3.forward;
+            }
+            return c;
+        }
+
+        private BoneCache MakeHeadCache(Transform bone)
+        {
+            BoneCache c = MakeCache(bone);
+            if (bone != null)
+            {
+                c.restUp = bone.rotation * Vector3.forward;
+                c.restAimDir = Vector3.forward;
+            }
+            return c;
+        }
+
+        private void CalibrateDataFrame(PoseFrame refFrame, PoseDataLoader loader, Transform hipsBone,
+                                        Transform chestBone, Transform upperChestBone,
+                                        Transform leftUpperArm, Transform rightUpperArm,
+                                        Transform leftUpperLeg, Transform rightUpperLeg)
+        {
+            dataFrameToAvatarFrame = Quaternion.identity;
+            if (!enableBodyFrameCalibration || refFrame == null || loader == null || hipsBone == null)
+                return;
+
+            if (!TryBuildDataBodyFrame(
+                    ApplyAxisSigns(loader.GetLandmarkPosition(refFrame, "left_hip")),
+                    ApplyAxisSigns(loader.GetLandmarkPosition(refFrame, "right_hip")),
+                    ApplyAxisSigns(loader.GetLandmarkPosition(refFrame, "left_shoulder")),
+                    ApplyAxisSigns(loader.GetLandmarkPosition(refFrame, "right_shoulder")),
+                    out _, out Vector3 dataRight, out Vector3 dataUp, out Vector3 dataForward))
+            {
+                Debug.LogWarning("[BoneMapper] Body frame calibration skipped: invalid reference landmarks.");
+                return;
+            }
+
+            Vector3 avatarOrigin = hipsBone.position;
+            Vector3 avatarUp = ResolveAvatarUp(hipsBone, chestBone, upperChestBone);
+            Vector3 avatarRight = ResolveAvatarRight(hipsBone, leftUpperArm, rightUpperArm, leftUpperLeg, rightUpperLeg);
+            Orthonormalize(ref avatarRight, ref avatarUp, out Vector3 avatarForward);
+
+            Vector3 avatarForwardHint = ResolveAvatarForwardHint(hipsBone);
+            if (Vector3.Dot(avatarForward, avatarForwardHint) < 0f)
+                avatarForward = -avatarForward;
+            avatarRight = Vector3.Cross(avatarUp, avatarForward).normalized;
+            avatarForwardReference = avatarForward;
+
+            Quaternion dataRot = Quaternion.LookRotation(dataForward, dataUp);
+            Quaternion avatarRot = Quaternion.LookRotation(avatarForward, avatarUp);
+            dataFrameToAvatarFrame = avatarRot * Quaternion.Inverse(dataRot);
+
+            lastBodyOrigin = avatarOrigin;
+            lastShoulderRight = avatarRight;
+            lastTrunkDir = avatarUp;
+            lastBodyForward = avatarForward;
+
+            Debug.Log($"[BoneMapper] Body frame calibrated. Data F/U/R: {dataForward}/{dataUp}/{dataRight}, Avatar F/U/R: {avatarForward}/{avatarUp}/{avatarRight}");
+        }
+
+        private Vector3 ResolveAvatarForwardHint(Transform hipsBone)
+        {
+            if (animator != null && animator.transform != null && animator.transform.forward.sqrMagnitude > 0.001f)
+                return animator.transform.forward.normalized;
+
+            if (hipsBone != null && hipsBone.forward.sqrMagnitude > 0.001f)
+                return hipsBone.forward.normalized;
+
+            return Vector3.forward;
+        }
+
+        private Vector3 ResolveAvatarUp(Transform hipsBone, Transform chestBone, Transform upperChestBone)
+        {
+            Transform upper = upperChestBone != null ? upperChestBone : chestBone;
+            if (hipsBone != null && upper != null)
+            {
+                Vector3 up = upper.position - hipsBone.position;
+                if (up.sqrMagnitude > 0.0001f) return up.normalized;
+            }
+            return Vector3.up;
+        }
+
+        private Vector3 ResolveAvatarRight(Transform hipsBone, Transform leftUpperArm, Transform rightUpperArm,
+                                           Transform leftUpperLeg, Transform rightUpperLeg)
+        {
+            if (leftUpperArm != null && rightUpperArm != null)
+            {
+                Vector3 right = rightUpperArm.position - leftUpperArm.position;
+                if (right.sqrMagnitude > 0.0001f) return right.normalized;
+            }
+
+            if (leftUpperLeg != null && rightUpperLeg != null)
+            {
+                Vector3 right = rightUpperLeg.position - leftUpperLeg.position;
+                if (right.sqrMagnitude > 0.0001f) return right.normalized;
+            }
+
+            return hipsBone != null ? hipsBone.right : Vector3.right;
+        }
+
+        private bool TryBuildDataBodyFrame(Vector3 lHip, Vector3 rHip, Vector3 lShoulder, Vector3 rShoulder,
+                                           out Vector3 origin, out Vector3 right, out Vector3 up, out Vector3 forward)
+        {
+            origin = (lHip + rHip) * 0.5f;
+            Vector3 shoulders = (lShoulder + rShoulder) * 0.5f;
+            right = ((rHip - lHip) + (rShoulder - lShoulder)) * 0.5f;
+            up = shoulders - origin;
+            forward = Vector3.forward;
+
+            if (right.sqrMagnitude < 0.0001f || up.sqrMagnitude < 0.0001f)
+                return false;
+
+            right.Normalize();
+            up.Normalize();
+            Orthonormalize(ref right, ref up, out forward);
+            return forward.sqrMagnitude > 0.0001f;
+        }
+
+        private void Orthonormalize(ref Vector3 right, ref Vector3 up, out Vector3 forward)
+        {
+            up = up.sqrMagnitude > 0.0001f ? up.normalized : Vector3.up;
+            right = Vector3.ProjectOnPlane(right, up);
+            if (right.sqrMagnitude < 0.0001f)
+                right = Vector3.ProjectOnPlane(Vector3.right, up);
+            right.Normalize();
+            forward = Vector3.Cross(right, up).normalized;
+            right = Vector3.Cross(up, forward).normalized;
+        }
+
+        private void CalibrateFootForwardSigns(PoseFrame refFrame, PoseDataLoader loader, Transform leftFoot, Transform rightFoot)
+        {
+            if (refFrame == null || loader == null) return;
+            leftFootForwardSign = ResolveFootForwardSign(
+                loader.GetLandmarkPosition(refFrame, "left_heel"),
+                loader.GetLandmarkPosition(refFrame, "left_foot_index"),
+                leftFoot);
+            rightFootForwardSign = ResolveFootForwardSign(
+                loader.GetLandmarkPosition(refFrame, "right_heel"),
+                loader.GetLandmarkPosition(refFrame, "right_foot_index"),
+                rightFoot);
+        }
+
+        private float ResolveFootForwardSign(Vector3 heelData, Vector3 toeData, Transform foot)
+        {
+            if (foot == null) return 1f;
+            Vector3 dataForward = DataToAvatarSpace(toeData) - DataToAvatarSpace(heelData);
+            if (dataForward.sqrMagnitude < 0.0001f) return 1f;
+            return Vector3.Dot(dataForward.normalized, foot.forward) < 0f ? -1f : 1f;
+        }
+
+        private void CacheSourceRestPose(PoseFrame refFrame, PoseDataLoader loader)
+        {
+            if (refFrame == null || loader == null) return;
+
+            Vector3 lShoulder = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "left_shoulder"));
+            Vector3 rShoulder = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "right_shoulder"));
+            Vector3 lHip = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "left_hip"));
+            Vector3 rHip = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "right_hip"));
+            Vector3 lElbow = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "left_elbow"));
+            Vector3 rElbow = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "right_elbow"));
+            Vector3 lWrist = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "left_wrist"));
+            Vector3 rWrist = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "right_wrist"));
+            Vector3 lKnee = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "left_knee"));
+            Vector3 rKnee = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "right_knee"));
+            Vector3 lAnkle = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "left_ankle"));
+            Vector3 rAnkle = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "right_ankle"));
+            Vector3 lHeel = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "left_heel"));
+            Vector3 rHeel = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "right_heel"));
+            Vector3 lToe = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "left_foot_index"));
+            Vector3 rToe = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "right_foot_index"));
+            Vector3 nose = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "nose"));
+            Vector3 lEar = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "left_ear"));
+            Vector3 rEar = DataToAvatarSpace(loader.GetLandmarkPosition(refFrame, "right_ear"));
+
+            Vector3 pelvis = (lHip + rHip) * 0.5f;
+            Vector3 shoulders = (lShoulder + rShoulder) * 0.5f;
+            Vector3 ears = (lEar + rEar) * 0.5f;
+
+            if (TryBuildDataBodyFrame(lHip, rHip, lShoulder, rShoulder,
+                    out _, out Vector3 bodyRight, out Vector3 bodyUp, out _))
+            {
+                sourceRestHipRight = AlignRightAxisToBody(rHip - lHip, bodyUp, bodyRight);
+                sourceRestShoulderRight = AlignRightAxisToBody(rShoulder - lShoulder, bodyUp, bodyRight);
+                sourceRestTrunkDir = bodyUp;
+            }
+            else
+            {
+                sourceRestHipRight = SafeDir(rHip - lHip, Vector3.right);
+                sourceRestShoulderRight = SafeDir(rShoulder - lShoulder, Vector3.right);
+                sourceRestTrunkDir = SafeDir(shoulders - pelvis, Vector3.up);
+            }
+
+            sourceRestNeckDir = SafeDir(ears - shoulders, sourceRestTrunkDir);
+            sourceRestHeadForward = ResolveHeadForward(nose, ears, lWrist, rWrist);
+            sourceRestEarRight = SafeDir(rEar - lEar, sourceRestShoulderRight);
+
+            sourceRestLeftUpperArmDir = SafeDir(lElbow - lShoulder, Vector3.left);
+            sourceRestLeftLowerArmDir = SafeDir(lWrist - lElbow, Vector3.left);
+            sourceRestRightUpperArmDir = SafeDir(rElbow - rShoulder, Vector3.right);
+            sourceRestRightLowerArmDir = SafeDir(rWrist - rElbow, Vector3.right);
+            sourceRestLeftUpperLegDir = SafeDir(lKnee - lHip, Vector3.down);
+            sourceRestLeftLowerLegDir = SafeDir(lAnkle - lKnee, Vector3.down);
+            sourceRestRightUpperLegDir = SafeDir(rKnee - rHip, Vector3.down);
+            sourceRestRightLowerLegDir = SafeDir(rAnkle - rKnee, Vector3.down);
+
+            BuildFootFrame(lAnkle, lHeel, lToe, leftFootForwardSign, out sourceRestLeftFootForward, out sourceRestLeftFootRight);
+            BuildFootFrame(rAnkle, rHeel, rToe, rightFootForwardSign, out sourceRestRightFootForward, out sourceRestRightFootRight);
+            Debug.Log("[BoneMapper] Source rest pose cached from reference frame.");
+        }
+
+        private Vector3 SafeDir(Vector3 dir, Vector3 fallback)
+        {
+            return dir.sqrMagnitude > 0.0001f ? dir.normalized : fallback.normalized;
+        }
+
         private void ComputeScaleFactor(PoseFrame refFrame, PoseDataLoader loader)
         {
             if (refFrame == null || loader == null) return;
@@ -294,6 +570,10 @@ namespace GolfSimulation.Core
             Vector3 rKnee = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_knee"));
             Vector3 lAnkle = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_ankle"));
             Vector3 rAnkle = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_ankle"));
+            Vector3 lHeel = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_heel"));
+            Vector3 rHeel = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_heel"));
+            Vector3 lToe = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_foot_index"));
+            Vector3 rToe = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_foot_index"));
             Vector3 nose = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "nose"));
             Vector3 lEar = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_ear"));
             Vector3 rEar = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_ear"));
@@ -301,10 +581,20 @@ namespace GolfSimulation.Core
             Vector3 pelvis = (lHip + rHip) * 0.5f;
             Vector3 shoulders = (lShoulder + rShoulder) * 0.5f;
             Vector3 ears = (lEar + rEar) * 0.5f;
+            lastLeftShoulderWorld = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_shoulder"));
+            lastRightShoulderWorld = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_shoulder"));
 
             Vector3 hipRight = (rHip - lHip).normalized;
             Vector3 shoulderRight = (rShoulder - lShoulder).normalized;
             Vector3 trunkDir = (shoulders - pelvis).normalized;
+            if (TryBuildDataBodyFrame(lHip, rHip, lShoulder, rShoulder,
+                    out pelvis, out Vector3 bodyRight, out Vector3 bodyUp, out Vector3 bodyForward))
+            {
+                hipRight = AlignRightAxisToBody(rHip - lHip, bodyUp, bodyRight);
+                shoulderRight = AlignRightAxisToBody(rShoulder - lShoulder, bodyUp, bodyRight);
+                trunkDir = bodyUp;
+            }
+            UpdateBodyReference(pelvis, hipRight, shoulderRight, trunkDir, bodyForward);
 
             if (hipsCache.bone != null)
             {
@@ -322,26 +612,30 @@ namespace GolfSimulation.Core
 
             Vector3 neckDir = (ears - shoulders).normalized;
             if (neckCache.bone != null && neckDir.sqrMagnitude > 0.001f)
-                ApplyAimTwist(ref neckCache, neckDir, shoulderRight);
+                ApplyNeckRotation(ref neckCache, neckDir, shoulderRight);
 
-            Vector3 headFwd = (nose - ears).normalized;
+            Vector3 headFwd = ResolveHeadForward(nose, ears, lWrist, rWrist);
             Vector3 earRight = (rEar - lEar).normalized;
-            Vector3 headUp = Vector3.Cross(headFwd, earRight).normalized;
-            if (headCache.bone != null && headUp.sqrMagnitude > 0.001f)
-                ApplyAimTwist(ref headCache, headUp, earRight);
+            Vector3 headUp = Vector3.Cross(earRight, headFwd).normalized;
+            if (headCache.bone != null && headFwd.sqrMagnitude > 0.001f)
+                ApplyHeadRotation(ref headCache, headFwd, earRight, shoulderRight, lWrist, rWrist);
 
             if (!useConstrainedArmIK || !skipArmFKWhenUsingIK)
             {
-                ApplyLimb(ref leftUpperArmCache, lShoulder, lElbow);
-                ApplyLimb(ref leftLowerArmCache, lElbow, lWrist);
-                ApplyLimb(ref rightUpperArmCache, rShoulder, rElbow);
-                ApplyLimb(ref rightLowerArmCache, rElbow, rWrist);
+                ApplyLimbDelta(ref leftUpperArmCache, sourceRestLeftUpperArmDir, lShoulder, lElbow);
+                ApplyLimbDelta(ref leftLowerArmCache, sourceRestLeftLowerArmDir, lElbow, lWrist);
+                ApplyLimbDelta(ref rightUpperArmCache, sourceRestRightUpperArmDir, rShoulder, rElbow);
+                ApplyLimbDelta(ref rightLowerArmCache, sourceRestRightLowerArmDir, rElbow, rWrist);
             }
 
-            ApplyLimb(ref leftUpperLegCache, lHip, lKnee);
-            ApplyLimb(ref leftLowerLegCache, lKnee, lAnkle);
-            ApplyLimb(ref rightUpperLegCache, rHip, rKnee);
-            ApplyLimb(ref rightLowerLegCache, rKnee, rAnkle);
+            ApplyLimbDelta(ref leftUpperLegCache, sourceRestLeftUpperLegDir, lHip, lKnee);
+            ApplyLimbDelta(ref leftLowerLegCache, sourceRestLeftLowerLegDir, lKnee, lAnkle);
+            ApplyLimbDelta(ref rightUpperLegCache, sourceRestRightUpperLegDir, rHip, rKnee);
+            ApplyLimbDelta(ref rightLowerLegCache, sourceRestRightLowerLegDir, rKnee, rAnkle);
+            if (loader.GetLandmarkVisibility(frame, "left_foot_index") > 0.2f)
+                ApplyFootOrientation(ref leftFootCache, lAnkle, lHeel, lToe, leftFootForwardSign);
+            if (loader.GetLandmarkVisibility(frame, "right_foot_index") > 0.2f)
+                ApplyFootOrientation(ref rightFootCache, rAnkle, rHeel, rToe, rightFootForwardSign);
         }
 
         public void ApplyPose(PoseFrame frame, PoseDataLoader loader, string phase, int frameIndex = 0)
@@ -352,20 +646,16 @@ namespace GolfSimulation.Core
 
             ApplyFKInternal(frame, loader);
 
-            bool gripActive = enableGripCoupling && gripOffsetCaptured && currentGripWeight > 0.01f;
             if (useConstrainedArmIK)
-                ApplyConstrainedArmIK(frame, loader, solveRightArm: !gripActive);
+                ApplyConstrainedArmIK(frame, loader);
 
             if (enableArmProtection)
                 ApplyArmProtection(frame, loader);
 
-            if (gripActive)
-                ApplyGripCoupling();
-
-            if (ikController != null)
+            if (enableFallbackIK && ikController != null)
             {
-                ikController.SkipArms = gripActive || useConstrainedArmIK;
-                ikController.Apply(frame, loader, DataToAvatarSpace, sourceToAvatarScale);
+                ikController.SkipArms = useConstrainedArmIK;
+                ikController.Apply(frame, loader, DataPointToAvatarWorld);
             }
 
             if (enableFinishBlend)
@@ -374,7 +664,31 @@ namespace GolfSimulation.Core
             if (enableSmoothing)
                 ApplySmoothing();
 
+            LogRetargetDiagnosticsOnce(frame, loader, frameIndex);
             CacheCurrentPose();
+        }
+
+        private void LogRetargetDiagnosticsOnce(PoseFrame frame, PoseDataLoader loader, int frameIndex)
+        {
+            if (!logRetargetDiagnostics || diagnosticsLogged || frame == null || loader == null) return;
+            if (frameIndex <= 0 && debugPhase != "address") return;
+
+            float leftFootIndexVis = loader.GetLandmarkVisibility(frame, "left_foot_index");
+            float rightFootIndexVis = loader.GetLandmarkVisibility(frame, "right_foot_index");
+
+            Vector3 leftWristWorld = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_wrist"));
+            Vector3 rightWristWorld = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_wrist"));
+            float leftArmForward = Vector3.Dot(leftWristWorld - lastLeftShoulderWorld, lastBodyForward);
+            float rightArmForward = Vector3.Dot(rightWristWorld - lastRightShoulderWorld, lastBodyForward);
+
+            Debug.Log(
+                $"[BoneMapper][Diagnostics] frame={frameIndex}, phase={debugPhase}, " +
+                $"bodyF={lastBodyForward}, trunk={lastTrunkDir}, " +
+                $"wristForward(L/R)=({leftArmForward:F3}/{rightArmForward:F3}), " +
+                $"armClamps={armTargetClampCount}, footIndexVis(L/R)=({leftFootIndexVis:F2}/{rightFootIndexVis:F2}), " +
+                $"axisSigns={dataAxisSigns}");
+
+            diagnosticsLogged = true;
         }
 
         private void UpdatePhaseParameters(string phase)
@@ -384,101 +698,84 @@ namespace GolfSimulation.Core
             {
                 case "setup":
                     currentResponsiveness = 0.35f;
-                    currentGripWeight = 0f;
                     break;
                 case "address":
                     currentResponsiveness = 0.35f;
-                    currentGripWeight = 0.9f;
                     break;
                 case "toe_up":
                 case "mid_backswing":
                     currentResponsiveness = 0.55f;
-                    currentGripWeight = 1f;
                     break;
                 case "top":
                     currentResponsiveness = 0.5f;
-                    currentGripWeight = 1f;
                     break;
                 case "mid_downswing":
                     currentResponsiveness = 0.85f;
-                    currentGripWeight = 1f;
                     break;
                 case "impact":
                     currentResponsiveness = 0.9f;
-                    currentGripWeight = 1f;
                     break;
                 case "mid_follow_through":
                     currentResponsiveness = 0.55f;
-                    currentGripWeight = 0.7f;
                     break;
                 case "finish":
                     currentResponsiveness = 0.3f;
-                    currentGripWeight = 0.3f;
                     break;
                 default:
                     currentResponsiveness = 0.5f;
-                    currentGripWeight = 0f;
                     break;
             }
         }
 
-        private void ApplyGripCoupling()
+        private void ApplyConstrainedArmIK(PoseFrame frame, PoseDataLoader loader)
         {
-            if (leftHandBone == null || rightUpperArmCache.bone == null ||
-                rightLowerArmCache.bone == null || rightHandBone == null) return;
+            Vector3 leftTarget = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_wrist"));
+            Vector3 rightTarget = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_wrist"));
+            armTargetClampCount = 0;
 
-            Vector3 coupledGripTarget = leftHandBone.TransformPoint(gripOffsetLocal);
-            Vector3 coupledTarget = coupledGripTarget - EstimateGripOffset(rightHandBone, rightLowerArmCache.bone);
-            Vector3 hint = rightLowerArmCache.bone.position;
+            if (enableTwoHandGripPose)
+                ApplyTwoHandGripTargets(ref leftTarget, ref rightTarget);
 
-            Quaternion fkUpperRot = rightUpperArmCache.bone.rotation;
-            Quaternion fkLowerRot = rightLowerArmCache.bone.rotation;
+            if (forceArmsInFrontOfTorso)
+            {
+                ClampArmTargetInFront(ref leftTarget, lastLeftShoulderWorld);
+                ClampArmTargetInFront(ref rightTarget, lastRightShoulderWorld);
+            }
 
-            TwoBoneIKSolver.Solve(
+            Vector3 leftHint = ResolveArmHint(
+                leftUpperArmCache.bone,
+                loader.GetLandmarkPosition(frame, "left_elbow"),
+                true);
+            Vector3 rightHint = ResolveArmHint(
                 rightUpperArmCache.bone,
-                rightLowerArmCache.bone,
-                rightHandBone,
-                coupledTarget,
-                hint);
+                loader.GetLandmarkPosition(frame, "right_elbow"),
+                false);
 
-            if (currentGripWeight < 0.999f)
-            {
-                rightUpperArmCache.bone.rotation = Quaternion.Slerp(fkUpperRot, rightUpperArmCache.bone.rotation, currentGripWeight);
-                rightLowerArmCache.bone.rotation = Quaternion.Slerp(fkLowerRot, rightLowerArmCache.bone.rotation, currentGripWeight);
-            }
+            SolveArmFromTarget(leftUpperArmCache.bone, leftLowerArmCache.bone, leftHandBone, leftTarget, leftHint);
+            SolveArmFromTarget(rightUpperArmCache.bone, rightLowerArmCache.bone, rightHandBone, rightTarget, rightHint);
+
+            if (enableTwoHandGripPose)
+                ApplyHandGripOrientation();
         }
 
-        private void ApplyConstrainedArmIK(PoseFrame frame, PoseDataLoader loader, bool solveRightArm)
+        private void ClampArmTargetInFront(ref Vector3 target, Vector3 shoulderWorld)
         {
-            SolveArmFromWristTarget(
-                leftUpperArmCache.bone, leftLowerArmCache.bone, leftHandBone,
-                loader.GetLandmarkPosition(frame, "left_wrist"),
-                loader.GetLandmarkPosition(frame, "left_elbow"));
+            if (shoulderWorld == Vector3.zero || lastBodyForward.sqrMagnitude < 0.001f) return;
 
-            if (solveRightArm)
-            {
-                SolveArmFromWristTarget(
-                    rightUpperArmCache.bone, rightLowerArmCache.bone, rightHandBone,
-                    loader.GetLandmarkPosition(frame, "right_wrist"),
-                    loader.GetLandmarkPosition(frame, "right_elbow"));
-            }
+            float forward = Vector3.Dot(target - shoulderWorld, lastBodyForward);
+            if (forward >= minArmForwardOffset) return;
+
+            target += lastBodyForward * (minArmForwardOffset - forward);
+            armTargetClampCount++;
         }
 
-        private void SolveArmFromWristTarget(Transform upper, Transform lower, Transform hand,
-                                             Vector3 wristData, Vector3 elbowData)
+        private void SolveArmFromTarget(Transform upper, Transform lower, Transform hand,
+                                        Vector3 target, Vector3 hint)
         {
             if (upper == null || lower == null || hand == null) return;
 
             Quaternion fkUpper = upper.rotation;
             Quaternion fkLower = lower.rotation;
-
-            Vector3 wristAvatar = DataToAvatarSpace(wristData);
-            Vector3 elbowAvatar = DataToAvatarSpace(elbowData);
-
-            Vector3 target = hipsRestPosition
-                + (wristAvatar - addressPelvisOffset) * sourceToAvatarScale * positionScale;
-            Vector3 hint = hipsRestPosition
-                + (elbowAvatar - addressPelvisOffset) * sourceToAvatarScale * positionScale;
 
             TwoBoneIKSolver.Solve(upper, lower, hand, target, hint);
 
@@ -489,23 +786,148 @@ namespace GolfSimulation.Core
             }
         }
 
-        private Vector3 EstimateGripPoint(Transform hand, Transform lowerArm)
+        private void UpdateBodyReference(Vector3 origin, Vector3 hipRight, Vector3 shoulderRight, Vector3 trunkDir, Vector3 bodyForward)
         {
-            if (hand == null) return Vector3.zero;
-            return hand.position + EstimateGripOffset(hand, lowerArm);
+            lastBodyOrigin = origin;
+
+            if (shoulderRight.sqrMagnitude > 0.001f)
+                lastShoulderRight = shoulderRight.normalized;
+            else if (hipRight.sqrMagnitude > 0.001f)
+                lastShoulderRight = hipRight.normalized;
+
+            if (trunkDir.sqrMagnitude > 0.001f)
+                lastTrunkDir = trunkDir.normalized;
+
+            if (bodyForward.sqrMagnitude > 0.001f)
+                lastBodyForward = StabilizeBodyForward(bodyForward.normalized);
+            else
+            {
+                Vector3 forward = Vector3.Cross(lastShoulderRight, lastTrunkDir).normalized;
+                if (forward.sqrMagnitude > 0.001f)
+                    lastBodyForward = StabilizeBodyForward(forward);
+            }
         }
 
-        private Vector3 EstimateGripOffset(Transform hand, Transform lowerArm)
+        private Vector3 StabilizeBodyForward(Vector3 candidate)
         {
-            if (hand == null) return Vector3.zero;
+            if (candidate.sqrMagnitude < 0.001f)
+                return lastBodyForward.sqrMagnitude > 0.001f ? lastBodyForward.normalized : avatarForwardReference;
 
-            Vector3 dir;
-            if (lowerArm != null && (hand.position - lowerArm.position).sqrMagnitude > 0.000001f)
-                dir = (hand.position - lowerArm.position).normalized;
-            else
-                dir = hand.forward;
+            candidate.Normalize();
 
-            return dir * wristToGripOffset;
+            Vector3 reference = lastBodyForward.sqrMagnitude > 0.001f
+                ? lastBodyForward.normalized
+                : avatarForwardReference.normalized;
+
+            if (reference.sqrMagnitude > 0.001f && Vector3.Dot(candidate, reference) < 0f)
+                candidate = -candidate;
+
+            return candidate;
+        }
+
+        private Vector3 AlignRightAxisToBody(Vector3 rawRight, Vector3 bodyUp, Vector3 bodyRight)
+        {
+            Vector3 right = Vector3.ProjectOnPlane(rawRight, bodyUp);
+            if (right.sqrMagnitude < 0.0001f)
+                return bodyRight;
+
+            right.Normalize();
+            if (Vector3.Dot(right, bodyRight) < 0f)
+                right = -right;
+            return right;
+        }
+
+        private Vector3 ResolveArmHint(Transform upper, Vector3 elbowData, bool isLeft)
+        {
+            Vector3 dataHint = DataPointToAvatarWorld(elbowData);
+            if (upper == null) return dataHint;
+
+            Vector3 side = isLeft ? -lastShoulderRight : lastShoulderRight;
+            Vector3 preferredDir = (side + lastBodyForward * 1.35f + lastTrunkDir * 0.15f).normalized;
+            float upperLen = upper.childCount > 0 ? Vector3.Distance(upper.position, upper.GetChild(0).position) : 0.25f;
+            Vector3 preferredHint = upper.position + preferredDir * Mathf.Max(upperLen, 0.12f);
+
+            Vector3 shoulderToHint = dataHint - upper.position;
+            float behind = Vector3.Dot(shoulderToHint, -lastBodyForward);
+            if (behind > 0f)
+                dataHint += lastBodyForward * (behind + elbowForwardBias);
+
+            if (forceArmsInFrontOfTorso)
+            {
+                Vector3 shoulder = isLeft ? lastLeftShoulderWorld : lastRightShoulderWorld;
+                ClampArmTargetInFront(ref dataHint, shoulder);
+            }
+
+            return Vector3.Lerp(preferredHint, dataHint, elbowHintDataWeight);
+        }
+
+        private void ApplyTwoHandGripTargets(ref Vector3 leftTarget, ref Vector3 rightTarget)
+        {
+            Vector3 axis = rightTarget - leftTarget;
+            float distance = axis.magnitude;
+            if (distance < 0.0001f) return;
+
+            float phaseWeight = GetGripPhaseWeight();
+            if (phaseWeight <= 0.001f) return;
+
+            Vector3 dir = axis / distance;
+            Vector3 center = (leftTarget + rightTarget) * 0.5f;
+            float desiredDistance = Mathf.Min(distance, targetHandSeparation);
+            Vector3 desiredLeft = center - dir * (desiredDistance * 0.5f);
+            Vector3 desiredRight = center + dir * (desiredDistance * 0.5f);
+            float blend = gripTargetBlend * phaseWeight;
+
+            leftTarget = Vector3.Lerp(leftTarget, desiredLeft, blend);
+            rightTarget = Vector3.Lerp(rightTarget, desiredRight, blend);
+        }
+
+        private float GetGripPhaseWeight()
+        {
+            switch (debugPhase)
+            {
+                case "setup":
+                    return 0.45f;
+                case "address":
+                case "toe_up":
+                case "mid_backswing":
+                case "top":
+                case "mid_downswing":
+                case "impact":
+                case "mid_follow_through":
+                    return 1f;
+                case "finish":
+                    return 0.65f;
+                default:
+                    return 0.8f;
+            }
+        }
+
+        private void ApplyHandGripOrientation()
+        {
+            if (leftHandBone == null || rightHandBone == null) return;
+
+            Vector3 gripAxis = rightHandBone.position - leftHandBone.position;
+            if (gripAxis.sqrMagnitude < 0.0001f) return;
+            gripAxis.Normalize();
+
+            RollHandTowardGrip(leftHandBone, leftLowerArmCache.bone, gripAxis);
+            RollHandTowardGrip(rightHandBone, rightLowerArmCache.bone, -gripAxis);
+        }
+
+        private void RollHandTowardGrip(Transform hand, Transform lowerArm, Vector3 desiredRight)
+        {
+            if (hand == null || lowerArm == null) return;
+
+            Vector3 forearmAxis = hand.position - lowerArm.position;
+            if (forearmAxis.sqrMagnitude < 0.0001f) return;
+            forearmAxis.Normalize();
+
+            Vector3 currentRight = Vector3.ProjectOnPlane(hand.right, forearmAxis).normalized;
+            Vector3 targetRight = Vector3.ProjectOnPlane(desiredRight, forearmAxis).normalized;
+            if (currentRight.sqrMagnitude < 0.001f || targetRight.sqrMagnitude < 0.001f) return;
+
+            float roll = Vector3.SignedAngle(currentRight, targetRight, forearmAxis);
+            hand.rotation = Quaternion.AngleAxis(roll * handOrientationWeight, forearmAxis) * hand.rotation;
         }
 
         private void HandleFinishPhase(PoseFrame frame, PoseDataLoader loader, string phase)
@@ -667,6 +1089,24 @@ namespace GolfSimulation.Core
         private void ApplyAimTwist(ref BoneCache cache, Vector3 aimTarget, Vector3 rightTarget)
         {
             if (cache.bone == null) return;
+            cache.bone.rotation = ResolveAimTwistRotation(cache, aimTarget, rightTarget);
+        }
+
+        private void ApplyAimTwistDelta(ref BoneCache cache, Vector3 sourceAim, Vector3 currentAim,
+                                        Vector3 sourceRight, Vector3 currentRight)
+        {
+            if (cache.bone == null) return;
+
+            Quaternion sourceRotation = ResolveAimTwistRotation(cache, sourceAim, sourceRight);
+            Quaternion currentRotation = ResolveAimTwistRotation(cache, currentAim, currentRight);
+            Quaternion delta = currentRotation * Quaternion.Inverse(sourceRotation);
+            cache.bone.rotation = delta * cache.restRot;
+        }
+
+        private Quaternion ResolveAimTwistRotation(BoneCache cache, Vector3 aimTarget, Vector3 rightTarget)
+        {
+            if (aimTarget.sqrMagnitude < 0.001f) return cache.bone != null ? cache.bone.rotation : cache.restRot;
+            aimTarget.Normalize();
 
             Quaternion aim = Quaternion.FromToRotation(cache.restUp, aimTarget);
             Quaternion afterAim = aim * cache.restRot;
@@ -677,13 +1117,121 @@ namespace GolfSimulation.Core
 
             if (projAimed.sqrMagnitude < 0.001f || projTarget.sqrMagnitude < 0.001f)
             {
-                cache.bone.rotation = afterAim;
-                return;
+                return afterAim;
             }
 
             float angle = Vector3.SignedAngle(projAimed, projTarget, aimTarget);
             Quaternion twist = Quaternion.AngleAxis(angle, aimTarget);
-            cache.bone.rotation = twist * afterAim;
+            return twist * afterAim;
+        }
+
+        private void ApplyNeckRotation(ref BoneCache cache, Vector3 dataDir, Vector3 right)
+        {
+            if (cache.bone == null) return;
+            if (!enableHeadStabilization)
+            {
+                ApplyAimTwistDelta(ref cache, sourceRestNeckDir, dataDir, sourceRestShoulderRight, right);
+                return;
+            }
+
+            Quaternion stable = ResolveAimTwistDeltaRotation(cache, sourceRestTrunkDir, lastTrunkDir, sourceRestShoulderRight, right);
+            Quaternion data = ResolveAimTwistDeltaRotation(cache, sourceRestNeckDir, dataDir, sourceRestShoulderRight, right);
+            cache.bone.rotation = Quaternion.Slerp(stable, data, neckDataWeight);
+        }
+
+        private Vector3 ResolveHeadForward(Vector3 nose, Vector3 ears, Vector3 leftWrist, Vector3 rightWrist)
+        {
+            Vector3 faceForward = nose - ears;
+            if (useHandsAsHeadLookTarget)
+            {
+                Vector3 handsCenter = (leftWrist + rightWrist) * 0.5f;
+                Vector3 handLook = handsCenter - ears;
+                handLook = Vector3.ProjectOnPlane(handLook, lastTrunkDir);
+                if (handLook.sqrMagnitude > 0.0001f)
+                    return Vector3.Slerp(lastBodyForward, handLook.normalized, 0.65f).normalized;
+            }
+
+            if (faceForward.sqrMagnitude > 0.0001f)
+            {
+                Vector3 projected = Vector3.ProjectOnPlane(faceForward, lastTrunkDir);
+                if (projected.sqrMagnitude > 0.0001f)
+                    return projected.normalized;
+                return faceForward.normalized;
+            }
+
+            return lastBodyForward;
+        }
+
+        private void ApplyHeadRotation(ref BoneCache cache, Vector3 dataForward, Vector3 earRight, Vector3 shoulderRight,
+                                       Vector3 leftWrist, Vector3 rightWrist)
+        {
+            if (cache.bone == null) return;
+            if (useHandsAsHeadLookTarget)
+            {
+                Vector3 handCenter = AvatarSpacePointToWorld((leftWrist + rightWrist) * 0.5f);
+                Vector3 lookDir = handCenter - cache.bone.position;
+                lookDir = Vector3.ProjectOnPlane(lookDir, lastTrunkDir);
+                if (lookDir.sqrMagnitude > 0.001f)
+                {
+                    Quaternion lookStable = ResolveAimTwistRotation(cache, lastBodyForward, shoulderRight);
+                    Quaternion look = ResolveAimTwistRotation(cache, lookDir.normalized, shoulderRight);
+                    Quaternion lookClamped = ClampRotationFromReference(lookStable, look, maxHeadAngleFromTorso);
+                    cache.bone.rotation = Quaternion.Slerp(lookStable, lookClamped, headDataWeight);
+                    return;
+                }
+            }
+
+            if (!enableHeadStabilization)
+            {
+                ApplyAimTwistDelta(ref cache, sourceRestHeadForward, dataForward, sourceRestEarRight, earRight);
+                return;
+            }
+
+            Quaternion stable = ResolveAimTwistDeltaRotation(cache, sourceRestHeadForward, lastBodyForward, sourceRestEarRight, shoulderRight);
+            Quaternion data = ResolveAimTwistDeltaRotation(cache, sourceRestHeadForward, dataForward, sourceRestEarRight, earRight);
+            Quaternion clamped = ClampRotationFromReference(stable, data, maxHeadAngleFromTorso);
+            cache.bone.rotation = Quaternion.Slerp(stable, clamped, headDataWeight);
+        }
+
+        private Quaternion ResolveAimTwistDeltaRotation(BoneCache cache, Vector3 sourceAim, Vector3 currentAim,
+                                                       Vector3 sourceRight, Vector3 currentRight)
+        {
+            Quaternion sourceRotation = ResolveAimTwistRotation(cache, sourceAim, sourceRight);
+            Quaternion currentRotation = ResolveAimTwistRotation(cache, currentAim, currentRight);
+            return (currentRotation * Quaternion.Inverse(sourceRotation)) * cache.restRot;
+        }
+
+        private Quaternion ClampRotationFromReference(Quaternion reference, Quaternion candidate, float maxAngle)
+        {
+            float angle = Quaternion.Angle(reference, candidate);
+            if (angle <= maxAngle || angle < 0.001f) return candidate;
+            return Quaternion.Slerp(reference, candidate, maxAngle / angle);
+        }
+
+        private void ApplyFootOrientation(ref BoneCache cache, Vector3 ankle, Vector3 heel, Vector3 toe, float forwardSign)
+        {
+            if (cache.bone == null) return;
+
+            BuildFootFrame(ankle, heel, toe, forwardSign, out Vector3 forward, out Vector3 right);
+            if (forward.sqrMagnitude < 0.0001f || right.sqrMagnitude < 0.0001f) return;
+
+            bool isLeft = ReferenceEquals(cache.bone, leftFootCache.bone);
+            Vector3 sourceForward = isLeft ? sourceRestLeftFootForward : sourceRestRightFootForward;
+            Vector3 sourceRight = isLeft ? sourceRestLeftFootRight : sourceRestRightFootRight;
+            ApplyAimTwistDelta(ref cache, sourceForward, forward, sourceRight, right);
+        }
+
+        private void BuildFootFrame(Vector3 ankle, Vector3 heel, Vector3 toe, float forwardSign,
+                                    out Vector3 forward, out Vector3 right)
+        {
+            forward = SafeDir((toe - heel) * forwardSign, lastBodyForward);
+            Vector3 up = SafeDir(ankle - ((heel + toe) * 0.5f), lastTrunkDir);
+            right = Vector3.Cross(up, forward).normalized;
+            if (right.sqrMagnitude < 0.001f)
+                right = lastShoulderRight;
+
+            if (Vector3.Dot(right, lastShoulderRight) < 0f)
+                right = -right;
         }
 
         private void ApplyLimb(ref BoneCache cache, Vector3 from, Vector3 to)
@@ -695,12 +1243,20 @@ namespace GolfSimulation.Core
             cache.bone.rotation = delta * cache.restRot;
         }
 
+        private void ApplyLimbDelta(ref BoneCache cache, Vector3 sourceDir, Vector3 from, Vector3 to)
+        {
+            if (cache.bone == null) return;
+            Vector3 dir = to - from;
+            if (dir.sqrMagnitude < 0.0001f || sourceDir.sqrMagnitude < 0.0001f) return;
+            Quaternion delta = Quaternion.FromToRotation(sourceDir.normalized, dir.normalized);
+            cache.bone.rotation = delta * cache.restRot;
+        }
+
         private void OnGUI()
         {
             if (!showDebugInfo || !isInitialized) return;
             GUILayout.BeginArea(new Rect(10, 130, 420, 140));
             GUILayout.Label($"[BoneMapper] Phase: {debugPhase} | Spine: {spineChain.Length}");
-            GUILayout.Label($"  Grip: {(enableGripCoupling && gripOffsetCaptured ? $"ON ({currentGripWeight:F2})" : "OFF")}");
             GUILayout.Label($"  Smoothing: {(enableSmoothing ? $"ON (resp: {currentResponsiveness:F2})" : "OFF")}");
             GUILayout.Label($"  Finish Blend: {(enableFinishBlend ? $"{debugFinishBlend:F2} (t={finishBlendTimer:F2}s)" : "OFF")} | Captured: {finishPoseCaptured}");
             GUILayout.Label($"  Arm Protect: {(enableArmProtection ? $"ON (freeze<{armFreezeVisThreshold:F2}, maxElbow={maxElbowAngle:F0}°)" : "OFF")}");

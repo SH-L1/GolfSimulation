@@ -22,7 +22,7 @@ namespace GolfSimulation.Core
         [SerializeField] private bool enableInterpolation = true;
 
         [Header("One Euro Filter")]
-        [SerializeField] private bool enableFilter = true;
+        [SerializeField] private bool enableFilter = false;
         [SerializeField][Range(0.01f, 10f)] private float filterMinCutoff = 1.0f;
         [SerializeField][Range(0f, 1f)] private float filterBeta = 0.007f;
         [SerializeField][Range(0.1f, 5f)] private float filterDCutoff = 1.0f;
@@ -31,7 +31,7 @@ namespace GolfSimulation.Core
         [SerializeField] private bool enablePoseCorrection = true;
 
         [Header("Debug")]
-        [SerializeField] private bool showDebugInfo = true;
+        [SerializeField] private bool showDebugInfo = false;
 
         private float playbackTime;
         private int currentFrameIndex;

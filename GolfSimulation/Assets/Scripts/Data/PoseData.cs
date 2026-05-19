@@ -113,8 +113,6 @@ namespace GolfSimulation.Data
                 hasOriginalFrameNumbers = true;
             }
 
-            if (!hasOriginalFrameNumbers) return;
-
             foreach (SwingEvent swingEvent in events.All())
             {
                 if (swingEvent == null) continue;
@@ -126,10 +124,22 @@ namespace GolfSimulation.Data
                 if (swingEvent.original_frame < 0)
                     swingEvent.original_frame = sourceFrame;
 
-                if (sourceFrame < minOrig || sourceFrame > maxOrig)
+                if (!hasOriginalFrameNumbers && swingEvent.frame >= 0 && swingEvent.frame < frames.Count)
                     continue;
 
-                swingEvent.frame = FindNearestSequenceFrameIndex(sourceFrame);
+                if (hasOriginalFrameNumbers && sourceFrame >= minOrig && sourceFrame <= maxOrig)
+                {
+                    swingEvent.frame = FindNearestSequenceFrameIndex(sourceFrame);
+                    continue;
+                }
+
+                if (TryFindNearestTimestampFrameIndex(swingEvent.timestamp, out int timestampFrame))
+                {
+                    swingEvent.frame = timestampFrame;
+                    continue;
+                }
+
+                swingEvent.frame = ClampFrameIndex(swingEvent.frame);
             }
         }
 
@@ -151,6 +161,39 @@ namespace GolfSimulation.Data
             }
 
             return bestIndex;
+        }
+
+        private bool TryFindNearestTimestampFrameIndex(float timestamp, out int frameIndex)
+        {
+            frameIndex = 0;
+            if (frames == null || frames.Count == 0 || timestamp <= 0f) return false;
+
+            int bestIndex = 0;
+            double bestDistance = double.MaxValue;
+            bool found = false;
+
+            for (int i = 0; i < frames.Count; i++)
+            {
+                PoseFrame frame = frames[i];
+                if (frame == null || frame.timestamp <= 0f) continue;
+
+                double distance = Math.Abs(frame.timestamp - timestamp);
+                if (distance >= bestDistance) continue;
+
+                bestDistance = distance;
+                bestIndex = i;
+                found = true;
+            }
+
+            if (!found) return false;
+            frameIndex = bestIndex;
+            return true;
+        }
+
+        private int ClampFrameIndex(int frameIndex)
+        {
+            if (frames == null || frames.Count == 0) return 0;
+            return Math.Max(0, Math.Min(frameIndex, frames.Count - 1));
         }
     }
 

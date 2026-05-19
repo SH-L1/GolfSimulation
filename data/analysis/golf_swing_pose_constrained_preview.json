@@ -14659,11 +14659,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.446178069691358,
-          "y": -0.3814501923148148,
-          "z": 0.04866541586419752,
+          "x": 0.4492176893562042,
+          "y": -0.3790860750896764,
+          "z": 0.05515615378539603,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -15026,11 +15026,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4444337251234568,
-          "y": -0.3812510906481481,
-          "z": 0.048110874259259265,
+          "x": 0.449848844294582,
+          "y": -0.37837928876597166,
+          "z": 0.050465594929829764,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -15393,11 +15393,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4427427439506173,
-          "y": -0.3810064632716049,
-          "z": 0.047423967962962964,
+          "x": 0.450635689781631,
+          "y": -0.3778064598138044,
+          "z": 0.04529242928657478,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -15764,11 +15764,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4411162469135802,
-          "y": -0.38069649194444444,
-          "z": 0.04661341521604938,
+          "x": 0.4513524381902979,
+          "y": -0.37738058748165415,
+          "z": 0.03968543257713287,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -16139,11 +16139,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.43957048549382716,
-          "y": -0.38031532336419754,
-          "z": 0.04570564101851852,
+          "x": 0.4527746443177485,
+          "y": -0.37671083420808704,
+          "z": 0.033744531992654,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -16514,11 +16514,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4381272405246913,
-          "y": -0.3798707408333333,
-          "z": 0.04474089787037037,
+          "x": 0.4539636872559345,
+          "y": -0.37610484858807325,
+          "z": 0.02768468021774833,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -16889,11 +16889,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4368116908950618,
-          "y": -0.37938491570987654,
-          "z": 0.043768726790123454,
+          "x": 0.454612979430906,
+          "y": -0.3756531940219953,
+          "z": 0.02165675077108841,
           "visibility": 0.9999,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -17264,11 +17264,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.43565274401234566,
-          "y": -0.37888972916666663,
-          "z": 0.04284346330246913,
+          "x": 0.4546830999901029,
+          "y": -0.3753811562511841,
+          "z": 0.01584284593221192,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -17639,11 +17639,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.43468471219135796,
-          "y": -0.3784273553703704,
-          "z": 0.04202661141975309,
+          "x": 0.4542657157592546,
+          "y": -0.3752981063609364,
+          "z": 0.010475754047481162,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -18014,11 +18014,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4339463966666667,
-          "y": -0.37804513225308645,
-          "z": 0.04137500552469136,
+          "x": 0.45349889191838927,
+          "y": -0.37541380971291194,
+          "z": 0.005810138769282873,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -18385,11 +18385,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.43347861540123456,
-          "y": -0.37779344703703704,
-          "z": 0.04094468175925926,
+          "x": 0.45248245276606597,
+          "y": -0.37575315255112707,
+          "z": 0.002075898725420834,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -18756,11 +18756,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.43332899549382714,
-          "y": -0.3777172705555556,
-          "z": 0.04078125645061728,
+          "x": 0.4512500878054591,
+          "y": -0.3763557388329508,
+          "z": -0.0005257693232975091,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -19131,11 +19131,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4335334983333333,
-          "y": -0.377856391419753,
-          "z": 0.04091567438271604,
+          "x": 0.4498045776548914,
+          "y": -0.37725704462829524,
+          "z": -0.0018423812412740326,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -19506,11 +19506,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.43412681345679016,
-          "y": -0.37824228067901233,
-          "z": 0.041365577253086414,
+          "x": 0.44819778910336966,
+          "y": -0.3784614459346708,
+          "z": -0.0017750714881085844,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -19881,11 +19881,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4351359540123456,
-          "y": -0.37889122268518516,
-          "z": 0.042132747746913585,
+          "x": 0.4465665728605854,
+          "y": -0.37991756825910533,
+          "z": -0.0002986656544492622,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -20256,11 +20256,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4365889665740741,
-          "y": -0.3798003907098765,
-          "z": 0.043198027901234566,
+          "x": 0.4451213212496627,
+          "y": -0.3815349122082907,
+          "z": 0.0024811436765189293,
           "visibility": 0.9999,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -20631,11 +20631,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4384955894753086,
-          "y": -0.3809485402160493,
-          "z": 0.04452640064814815,
+          "x": 0.44409236849454226,
+          "y": -0.3832241644580042,
+          "z": 0.006342243565262112,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -21006,11 +21006,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4408534880246914,
-          "y": -0.3822908207098765,
-          "z": 0.046065587993827165,
+          "x": 0.4436932662187094,
+          "y": -0.38495156762667315,
+          "z": 0.010945560541891455,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -21373,11 +21373,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4436498010493827,
-          "y": -0.3837597944444444,
-          "z": 0.04775282820987654,
+          "x": 0.4440773064334272,
+          "y": -0.38678293066935704,
+          "z": 0.01589282068201999,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -21740,11 +21740,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4468593886419753,
-          "y": -0.3852685970679012,
-          "z": 0.04951925271604938,
+          "x": 0.4453301890522099,
+          "y": -0.38888112208222414,
+          "z": 0.02077682934602569,
           "visibility": 0.9999,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -22107,11 +22107,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.45044803700617286,
-          "y": -0.3867155191049383,
-          "z": 0.0512959048765432,
+          "x": 0.44787587179861416,
+          "y": -0.3910268216963502,
+          "z": 0.025028504744561808,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -22474,11 +22474,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4543725641666666,
-          "y": -0.38799318367283947,
-          "z": 0.05302348209876542,
+          "x": 0.4515129562437543,
+          "y": -0.3927145996814316,
+          "z": 0.02821257218606904,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -22841,11 +22841,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.45858979836419755,
-          "y": -0.3889998370987654,
-          "z": 0.05465179635802468,
+          "x": 0.4552411605101552,
+          "y": -0.3945783513809467,
+          "z": 0.030457175827006522,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -23228,11 +23228,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4630554516975308,
-          "y": -0.3896501730864198,
-          "z": 0.05615013179012345,
+          "x": 0.45916513510691925,
+          "y": -0.39660566600812924,
+          "z": 0.0316179754187051,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -25151,11 +25151,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4876595033641975,
-          "y": -0.38629059429012347,
-          "z": 0.06155101688271604,
+          "x": 0.490906772565497,
+          "y": -0.3994044442138966,
+          "z": 0.03583377616980037,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [
             "bone_corrected"
           ],
@@ -25536,11 +25536,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4927377968827161,
-          "y": -0.38440088037037035,
-          "z": 0.062311561512345674,
+          "x": 0.5060044774350165,
+          "y": -0.40262810893994766,
+          "z": 0.022223841286075928,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [
             "bone_corrected"
           ],
@@ -25917,11 +25917,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.4977446712962963,
-          "y": -0.38223357984567896,
-          "z": 0.06301242830246913,
+          "x": 0.5280630058281264,
+          "y": -0.39324748985922037,
+          "z": 0.026535431846312484,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -26306,11 +26306,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5026140125617284,
-          "y": -0.37986252645061724,
-          "z": 0.06367062364197532,
+          "x": 0.5166065850461303,
+          "y": -0.3902187433450698,
+          "z": 0.015145356368103751,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -26693,11 +26693,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5072866130246915,
-          "y": -0.37736644342592585,
-          "z": 0.06429712666666665,
+          "x": 0.506642066391688,
+          "y": -0.38882371767436885,
+          "z": 0.007670687886687538,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -27078,11 +27078,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.511710875308642,
-          "y": -0.3748277336728395,
-          "z": 0.06489967098765431,
+          "x": 0.5046373227574289,
+          "y": -0.38580964364717324,
+          "z": 0.005616414921529478,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -27461,11 +27461,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5158589949382716,
-          "y": -0.37232369364197526,
-          "z": 0.06548180256172839,
+          "x": 0.4943207121618209,
+          "y": -0.3840275023884521,
+          "z": 0.007825418779073723,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -27846,11 +27846,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5197252681790123,
-          "y": -0.3699221385802469,
-          "z": 0.06604398231481481,
+          "x": 0.47936158453461875,
+          "y": -0.38642298185654067,
+          "z": 0.02369354084445603,
           "visibility": 0.9995,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -28231,11 +28231,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5233334056172839,
-          "y": -0.36768634876543216,
-          "z": 0.06658701558641975,
+          "x": 0.4764220757161441,
+          "y": -0.38717331119114773,
+          "z": 0.04266751177194465,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -28614,11 +28614,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5267371811728395,
-          "y": -0.36566502225308645,
-          "z": 0.06711066114197531,
+          "x": 0.4803474360965853,
+          "y": -0.38577437005020543,
+          "z": 0.05506776126251411,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [
             "bone_corrected"
           ],
@@ -28995,9 +28995,9 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5300038096296297,
-          "y": -0.36389625564814815,
-          "z": 0.06761674432098765,
+          "x": 0.5059144485885589,
+          "y": -0.3745097934325433,
+          "z": 0.0615289662154705,
           "visibility": 1.0,
           "source": "motionbert+smooth+dynamics",
           "flags": [],
@@ -29370,9 +29370,9 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5331965022530863,
-          "y": -0.36240131317901236,
-          "z": 0.06810492978395061,
+          "x": 0.5315110381538856,
+          "y": -0.36314936569053363,
+          "z": 0.06769867185891998,
           "visibility": 1.0,
           "source": "motionbert+smooth+dynamics",
           "flags": [],
@@ -31259,11 +31259,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5487444767592592,
-          "y": -0.3588315373148148,
-          "z": 0.07038696836419753,
+          "x": 0.5415905313136605,
+          "y": -0.3666583018652909,
+          "z": 0.0928262637909384,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -31642,11 +31642,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5515175291666666,
-          "y": -0.35873477234567896,
-          "z": 0.07083186651234567,
+          "x": 0.5486123708292915,
+          "y": -0.3636542094467555,
+          "z": 0.09253247862746983,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -32021,11 +32021,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5540169800925926,
-          "y": -0.358763433919753,
-          "z": 0.07127179709876544,
+          "x": 0.5537792844526478,
+          "y": -0.36303667527426614,
+          "z": 0.09130672929337871,
           "visibility": 1.0,
-          "source": "motionbert+smooth+dynamics",
+          "source": "motionbert+smooth+headlimit+dynamics",
           "flags": [
             "bone_corrected"
           ],
@@ -37351,11 +37351,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5701747443209877,
-          "y": -0.36233803787037033,
-          "z": 0.07119673058387367,
+          "x": 0.5697644253419766,
+          "y": -0.36239455902109885,
+          "z": 0.07120682718939386,
           "visibility": 0.9998,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -37732,11 +37732,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5714807332098764,
-          "y": -0.3622092243518518,
-          "z": 0.06997277174318717,
+          "x": 0.5637117637226297,
+          "y": -0.36231387573651963,
+          "z": 0.06860100511466588,
           "visibility": 0.9996,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -38113,11 +38113,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.572855904845679,
-          "y": -0.3618324431790124,
-          "z": 0.06907901934958864,
+          "x": 0.5563753964308215,
+          "y": -0.36069231184030126,
+          "z": 0.06511902939888395,
           "visibility": 0.9963,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -38496,11 +38496,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.574272512808642,
-          "y": -0.3611982196604938,
-          "z": 0.06849577235954585,
+          "x": 0.5488871270887721,
+          "y": -0.35834998070593554,
+          "z": 0.060331864667800446,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -38879,11 +38879,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5757034304012346,
-          "y": -0.3603229761419753,
-          "z": 0.06816193124935613,
+          "x": 0.5444017621693047,
+          "y": -0.3562069634166442,
+          "z": 0.05591886256472449,
           "visibility": 0.999,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -39262,11 +39262,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5771160516358026,
-          "y": -0.3592544833641975,
-          "z": 0.06799852663299541,
+          "x": 0.5437426664014177,
+          "y": -0.3548376408083234,
+          "z": 0.05374419519711997,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -39645,11 +39645,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5784849341666667,
-          "y": -0.35806030854938264,
-          "z": 0.06789999132928512,
+          "x": 0.545885980740154,
+          "y": -0.3540885988010431,
+          "z": 0.0536344676469717,
           "visibility": 0.9995,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -40032,11 +40032,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5797861196604936,
-          "y": -0.3568175020987654,
-          "z": 0.06777201185889428,
+          "x": 0.5487442985288401,
+          "y": -0.35351472697397823,
+          "z": 0.05389317247491468,
           "visibility": 0.9989,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -40415,11 +40415,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5810039316358024,
-          "y": -0.35560375351851853,
-          "z": 0.06755642529674569,
+          "x": 0.5494558452260025,
+          "y": -0.35268327529178495,
+          "z": 0.05272794347736755,
           "visibility": 0.9997,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -40798,11 +40798,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5821310248148148,
-          "y": -0.3544870772530864,
-          "z": 0.06723637297286736,
+          "x": 0.5454921866899918,
+          "y": -0.3508975204061159,
+          "z": 0.04839060758542125,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -41181,11 +41181,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5831736210493828,
-          "y": -0.3535145470679012,
-          "z": 0.06681397147589865,
+          "x": 0.5368342250852168,
+          "y": -0.34700300155039737,
+          "z": 0.03793763650409468,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -41564,11 +41564,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5841408042901235,
-          "y": -0.35271515271604936,
-          "z": 0.06628382333837551,
+          "x": 0.5294766953687935,
+          "y": -0.3409800899566729,
+          "z": 0.020458176053219822,
           "visibility": 0.9991,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -41951,11 +41951,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5850435186728395,
-          "y": -0.3520964662037037,
-          "z": 0.06561476654453897,
+          "x": 0.5287790292880848,
+          "y": -0.335514961747646,
+          "z": 0.0029959211566391924,
           "visibility": 0.9999,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [
             "bone_corrected"
           ],
@@ -42340,11 +42340,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5858960941358025,
-          "y": -0.3516442994444444,
-          "z": 0.06475198235178221,
+          "x": 0.5318401569449182,
+          "y": -0.3319461994575303,
+          "z": -0.00930575115254797,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -42723,11 +42723,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5867119605246914,
-          "y": -0.35132561740740736,
-          "z": 0.06366466021524643,
+          "x": 0.5351790092420692,
+          "y": -0.32976609268918805,
+          "z": -0.016712131065594382,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [
             "bone_corrected"
           ],
@@ -43112,11 +43112,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.587503584537037,
-          "y": -0.35109081135802467,
-          "z": 0.06241436836001653,
+          "x": 0.5373886947684686,
+          "y": -0.3283222224473361,
+          "z": -0.020439262175127426,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -43499,11 +43499,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5882791408333334,
-          "y": -0.35088914824074074,
-          "z": 0.06118738699935334,
+          "x": 0.5378157228132032,
+          "y": -0.3272557412252652,
+          "z": -0.020618243539465748,
           "visibility": 0.9998,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [
             "bone_corrected"
           ],
@@ -43888,9 +43888,9 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.589043833117284,
-          "y": -0.35066941074074076,
-          "z": 0.0602122181207759,
+          "x": 0.5527266319230153,
+          "y": -0.33407073197936726,
+          "z": 0.0029089890671213196,
           "visibility": 1.0,
           "source": "motionbert+smooth+trunklimit+dynamics",
           "flags": [],
@@ -44275,11 +44275,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5898062039506173,
-          "y": -0.35037218666666664,
-          "z": 0.0596253976014222,
+          "x": 0.5514960392603299,
+          "y": -0.3301772175809218,
+          "z": -0.00573395485084854,
           "visibility": 0.9999,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -44662,9 +44662,9 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5905686662654321,
-          "y": -0.3499584475617284,
-          "z": 0.059398471851457336,
+          "x": 0.565737041409997,
+          "y": -0.3373796970214779,
+          "z": 0.017990509134534805,
           "visibility": 1.0,
           "source": "motionbert+smooth+trunklimit+dynamics",
           "flags": [],
@@ -45049,9 +45049,9 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5913366716358024,
-          "y": -0.34939567669753085,
-          "z": 0.059362796932157146,
+          "x": 0.5803855801541346,
+          "y": -0.3442554425803337,
+          "z": 0.04166442767911466,
           "visibility": 1.0,
           "source": "motionbert+smooth+trunklimit+dynamics",
           "flags": [],
@@ -45819,11 +45819,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5929002068209877,
-          "y": -0.34777405188271604,
-          "z": 0.05907665140794718,
+          "x": 0.5795332474915824,
+          "y": -0.343219205096099,
+          "z": 0.05008784448649943,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -46204,11 +46204,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5936927678395061,
-          "y": -0.3467280648765432,
-          "z": 0.05858754451081987,
+          "x": 0.5558161025611394,
+          "y": -0.335521451849384,
+          "z": 0.03592621976032199,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [],
           "observed_mask": 0,
           "predicted_mask": 0,
@@ -46581,11 +46581,11 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5944866333950617,
-          "y": -0.3455548987037037,
-          "z": 0.05786088834422013,
+          "x": 0.5318199771312749,
+          "y": -0.32850533903303436,
+          "z": 0.030596200894879307,
           "visibility": 1.0,
-          "source": "motionbert+smooth+trunklimit+dynamics",
+          "source": "motionbert+smooth+trunklimit+headlimit+dynamics",
           "flags": [
             "bone_corrected"
           ],
@@ -46964,9 +46964,9 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5952752686419753,
-          "y": -0.34428787824074075,
-          "z": 0.056966500922195774,
+          "x": 0.5424417191631341,
+          "y": -0.33082766165868244,
+          "z": 0.036425809961989006,
           "visibility": 0.9999,
           "source": "motionbert+smooth+trunklimit+dynamics",
           "flags": [],
@@ -47341,9 +47341,9 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5960518835802469,
-          "y": -0.34296293037037034,
-          "z": 0.05597782640344833,
+          "x": 0.5687926480945056,
+          "y": -0.3367924932696579,
+          "z": 0.04603618518309991,
           "visibility": 1.0,
           "source": "motionbert+smooth+trunklimit+dynamics",
           "flags": [],
@@ -47712,9 +47712,9 @@
       "landmarks": [
         {
           "name": "nose",
-          "x": 0.5967452903125,
-          "y": -0.34173163076388885,
-          "z": 0.0550368528017023,
+          "x": 0.5957103674076001,
+          "y": -0.3415487633811432,
+          "z": 0.05470361070583035,
           "visibility": 1.0,
           "source": "motionbert+smooth+trunklimit+dynamics",
           "flags": [],
@@ -48526,8 +48526,8 @@
       "trunk_constrained_frames": 31,
       "arm_depth_constrained_segments": 127,
       "arm_reach_constrained_frames": 27,
-      "head_constrained_frames": 0,
-      "dynamics_constrained_samples": 25,
+      "head_constrained_frames": 58,
+      "dynamics_constrained_samples": 42,
       "event_stats": {
         "normalized": 0,
         "clamped": 0
@@ -48557,7 +48557,7 @@
         "arm_depth_blend": 0.9,
         "max_arm_reach_ratio": 0.985,
         "min_elbow_angle_deg": 25.0,
-        "max_head_angle_from_body_deg": 180.0,
+        "max_head_angle_from_body_deg": 38.0,
         "max_head_frame_angle_deg": 12.0,
         "head_correction_blend": 0.65,
         "max_velocity_ratio": 0.42,

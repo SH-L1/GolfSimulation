@@ -13,6 +13,7 @@ namespace GolfSimulation.Utility
         [Header("References")]
         [SerializeField] private PoseDataLoader dataLoader;
         [SerializeField] private SwingPlayer swingPlayer;
+        [SerializeField] private BoneMapper boneMapper;
 
         [Header("Gizmo Settings")]
         [SerializeField] private float sphereRadius = 0.01f;
@@ -20,6 +21,9 @@ namespace GolfSimulation.Utility
         [SerializeField] private Vector3 offset = Vector3.zero;
         [SerializeField] private bool showLabels = true;
         [SerializeField] private bool showConnections = true;
+        [SerializeField] private bool showBodyFrame = true;
+        [SerializeField] private bool showHeadLookLine = true;
+        [SerializeField] private float axisLength = 0.25f;
 
         // 키포인트 간 연결선 정의 (본 체인)
         private static readonly (string, string)[] connections = new[]
@@ -37,11 +41,15 @@ namespace GolfSimulation.Utility
             // 하체
             ("left_hip", "left_knee"), ("left_knee", "left_ankle"),
             ("right_hip", "right_knee"), ("right_knee", "right_ankle"),
+            ("left_heel", "left_foot_index"), ("right_heel", "right_foot_index"),
+            ("left_ankle", "left_heel"), ("right_ankle", "right_heel"),
         };
 
         private void OnDrawGizmos()
         {
             if (dataLoader == null || !dataLoader.IsLoaded || swingPlayer == null) return;
+            if (boneMapper == null)
+                boneMapper = GetComponent<BoneMapper>();
 
             PoseFrame frame = dataLoader.GetFrame(swingPlayer.CurrentFrameIndex);
             if (frame == null || !frame.has_pose) return;
@@ -49,7 +57,7 @@ namespace GolfSimulation.Utility
             // 키포인트 점 그리기
             foreach (var lm in frame.landmarks)
             {
-                Vector3 pos = new Vector3(lm.x, lm.y, lm.z) * positionScale + offset;
+                Vector3 pos = ResolveDebugPosition(new Vector3(lm.x, lm.y, lm.z));
 
                 // visibility에 따른 색상 (높을수록 녹색, 낮을수록 빨간색)
                 Gizmos.color = Color.Lerp(Color.red, Color.green, lm.visibility);
@@ -70,11 +78,49 @@ namespace GolfSimulation.Utility
                 Gizmos.color = Color.cyan;
                 foreach (var (from, to) in connections)
                 {
-                    Vector3 fromPos = dataLoader.GetLandmarkPosition(frame, from) * positionScale + offset;
-                    Vector3 toPos = dataLoader.GetLandmarkPosition(frame, to) * positionScale + offset;
+                    Vector3 fromPos = ResolveDebugPosition(dataLoader.GetLandmarkPosition(frame, from));
+                    Vector3 toPos = ResolveDebugPosition(dataLoader.GetLandmarkPosition(frame, to));
                     Gizmos.DrawLine(fromPos, toPos);
                 }
             }
+
+            if (showBodyFrame && boneMapper != null && boneMapper.IsInitialized)
+            {
+                DrawAxisFrame(
+                    boneMapper.BodyFrameOrigin,
+                    boneMapper.BodyFrameRight,
+                    boneMapper.BodyFrameUp,
+                    boneMapper.BodyFrameForward,
+                    axisLength);
+            }
+
+            if (showHeadLookLine)
+            {
+                Vector3 earCenter = (ResolveDebugPosition(dataLoader.GetLandmarkPosition(frame, "left_ear"))
+                                  + ResolveDebugPosition(dataLoader.GetLandmarkPosition(frame, "right_ear"))) * 0.5f;
+                Vector3 handCenter = (ResolveDebugPosition(dataLoader.GetLandmarkPosition(frame, "left_wrist"))
+                                   + ResolveDebugPosition(dataLoader.GetLandmarkPosition(frame, "right_wrist"))) * 0.5f;
+                Gizmos.color = Color.magenta;
+                Gizmos.DrawLine(earCenter, handCenter);
+            }
+        }
+
+        private Vector3 ResolveDebugPosition(Vector3 dataPoint)
+        {
+            if (boneMapper != null && boneMapper.IsInitialized)
+                return boneMapper.DataPointToAvatarWorld(dataPoint) + offset;
+
+            return dataPoint * positionScale + offset;
+        }
+
+        private void DrawAxisFrame(Vector3 origin, Vector3 right, Vector3 up, Vector3 forward, float length)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(origin, origin + right.normalized * length);
+            Gizmos.color = Color.green;
+            Gizmos.DrawLine(origin, origin + up.normalized * length);
+            Gizmos.color = Color.blue;
+            Gizmos.DrawLine(origin, origin + forward.normalized * length);
         }
     }
 }

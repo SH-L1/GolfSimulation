@@ -8,6 +8,7 @@ namespace GolfSimulation.IK
         [Header("Visibility Thresholds")]
         [SerializeField] private float highThreshold = 0.7f;
         [SerializeField] private float lowThreshold = 0.3f;
+        [SerializeField] private bool showDebugInfo = false;
 
         private Transform leftUpperArm, leftLowerArm, leftHand;
         private Transform rightUpperArm, rightLowerArm, rightHand;
@@ -51,8 +52,7 @@ namespace GolfSimulation.IK
         }
 
         public void Apply(PoseFrame frame, PoseDataLoader loader,
-                         System.Func<Vector3, Vector3> dataToAvatarSpace,
-                         float sourceToAvatarScale)
+                         System.Func<Vector3, Vector3> dataPointToAvatarWorld)
         {
             if (!isInitialized || frame == null) return;
 
@@ -70,10 +70,10 @@ namespace GolfSimulation.IK
                 {
                     BackupFK(leftUpperArm, leftLowerArm, out fkLeftUpperArm, out fkLeftLowerArm);
 
-                    Vector3 target = dataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_wrist"));
-                    Vector3 hint = dataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_elbow"));
+                    Vector3 target = dataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_wrist"));
+                    Vector3 hint = dataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_elbow"));
                     SolveAndBlend(leftUpperArm, leftLowerArm, leftHand,
-                                  target, hint, sourceToAvatarScale,
+                                  target, hint,
                                   fkLeftUpperArm, fkLeftLowerArm, leftArmIKWeight);
                 }
 
@@ -89,10 +89,10 @@ namespace GolfSimulation.IK
                 {
                     BackupFK(rightUpperArm, rightLowerArm, out fkRightUpperArm, out fkRightLowerArm);
 
-                    Vector3 target = dataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_wrist"));
-                    Vector3 hint = dataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_elbow"));
+                    Vector3 target = dataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_wrist"));
+                    Vector3 hint = dataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_elbow"));
                     SolveAndBlend(rightUpperArm, rightLowerArm, rightHand,
-                                  target, hint, sourceToAvatarScale,
+                                  target, hint,
                                   fkRightUpperArm, fkRightLowerArm, rightArmIKWeight);
                 }
             }
@@ -116,10 +116,10 @@ namespace GolfSimulation.IK
             {
                 BackupFK(leftUpperLeg, leftLowerLeg, out fkLeftUpperLeg, out fkLeftLowerLeg);
 
-                Vector3 target = dataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_ankle"));
-                Vector3 hint = dataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_knee"));
+                Vector3 target = dataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_ankle"));
+                Vector3 hint = dataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_knee"));
                 SolveAndBlend(leftUpperLeg, leftLowerLeg, leftFoot,
-                              target, hint, sourceToAvatarScale,
+                              target, hint,
                               fkLeftUpperLeg, fkLeftLowerLeg, leftLegIKWeight);
             }
 
@@ -135,10 +135,10 @@ namespace GolfSimulation.IK
             {
                 BackupFK(rightUpperLeg, rightLowerLeg, out fkRightUpperLeg, out fkRightLowerLeg);
 
-                Vector3 target = dataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_ankle"));
-                Vector3 hint = dataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_knee"));
+                Vector3 target = dataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_ankle"));
+                Vector3 hint = dataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_knee"));
                 SolveAndBlend(rightUpperLeg, rightLowerLeg, rightFoot,
-                              target, hint, sourceToAvatarScale,
+                              target, hint,
                               fkRightUpperLeg, fkRightLowerLeg, rightLegIKWeight);
             }
         }
@@ -158,15 +158,11 @@ namespace GolfSimulation.IK
         }
 
         private void SolveAndBlend(Transform upper, Transform mid, Transform tip,
-                                   Vector3 targetLocal, Vector3 hintLocal,
-                                   float scale,
+                                   Vector3 worldTarget, Vector3 worldHint,
                                    Quaternion fkUpper, Quaternion fkMid,
                                    float ikWeight)
         {
             if (upper == null || mid == null || tip == null) return;
-
-            Vector3 worldTarget = upper.root.position + targetLocal * scale;
-            Vector3 worldHint = upper.root.position + hintLocal * scale;
 
             TwoBoneIKSolver.Solve(upper, mid, tip, worldTarget, worldHint);
 
@@ -179,12 +175,12 @@ namespace GolfSimulation.IK
 
         private void OnGUI()
         {
-            if (!isInitialized) return;
+            if (!showDebugInfo || !isInitialized) return;
 
             GUILayout.BeginArea(new Rect(10, 260, 350, 200));
             if (SkipArms)
             {
-                GUILayout.Label("[IK] Arms: SKIP (Grip Coupling active)");
+                GUILayout.Label("[IK] Arms: SKIP (handled by BoneMapper constrained IK)");
             }
             else
             {
