@@ -22,6 +22,12 @@ namespace GolfSimulation.Correction
         [SerializeField][Range(0f, 1f)] private float smoothingBlend = 0.35f;
         [SerializeField][Range(0f, 1f)] private float zStabilizationBlend = 0.65f;
 
+        [Header("Anatomical Frame Repair")]
+        [SerializeField] private bool enableAnatomicalFrameRepair = true;
+        [SerializeField][Range(0.02f, 0.45f)] private float minLegSideRatio = 0.24f;
+        [SerializeField][Range(0.02f, 0.45f)] private float minArmForwardRatio = 0.22f;
+        [SerializeField][Range(0f, 1f)] private float faceRepairBlend = 0.9f;
+
         [Header("Debug")]
         [SerializeField] private bool showStats = false;
 
@@ -56,6 +62,7 @@ namespace GolfSimulation.Correction
             int hardClampCount = 0;
             int jumpCount = 0;
             int depthFixCount = 0;
+            int anatomicalFixCount = 0;
 
             for (int i = 0; i < frames.Count; i++)
             {
@@ -84,12 +91,231 @@ namespace GolfSimulation.Correction
                 StabilizeArmSequence(sequence, false, ref jumpCount, ref depthFixCount);
             }
 
+            if (enableAnatomicalFrameRepair)
+                ApplyAnatomicalFrameRepair(sequence, ref anatomicalFixCount);
+
             if (showStats)
             {
                 Debug.Log("[PoseCorrector] ========== Preprocess complete ==========");
                 Debug.Log($"[PoseCorrector] Video: {sequence.video} | View: {viewType} | Frames: {frames.Count}");
-                Debug.Log($"[PoseCorrector] Hard clamps: {hardClampCount} | Jump repairs: {jumpCount} | Depth shifts: {depthFixCount}");
+                Debug.Log($"[PoseCorrector] Hard clamps: {hardClampCount} | Jump repairs: {jumpCount} | Depth shifts: {depthFixCount} | Anatomical repairs: {anatomicalFixCount}");
             }
+        }
+
+        private void ApplyAnatomicalFrameRepair(PoseSequence sequence, ref int repairCount)
+        {
+            Vector3 lastForward = Vector3.forward;
+            bool hasForward = false;
+
+            foreach (PoseFrame frame in sequence.frames)
+            {
+                Dictionary<string, Landmark> map = BuildLandmarkMap(frame);
+                if (map == null) continue;
+                if (!TryBuildBodyFrame(map, ref lastForward, ref hasForward,
+                        out Vector3 pelvis, out Vector3 right, out Vector3 up, out Vector3 forward,
+                        out float bodyWidth))
+                {
+                    continue;
+                }
+
+                float legSide = bodyWidth * minLegSideRatio;
+                EnsureLateralOrder(map, "left_knee", "right_knee", pelvis, right, legSide, ref repairCount);
+                EnsureLateralOrder(map, "left_ankle", "right_ankle", pelvis, right, legSide * 1.05f, ref repairCount);
+                EnsureLateralOrder(map, "left_heel", "right_heel", pelvis, right, legSide * 1.05f, ref repairCount);
+                EnsureLateralOrder(map, "left_foot_index", "right_foot_index", pelvis, right, legSide * 1.1f, ref repairCount);
+
+                PushArmInFront(map, "left_shoulder", "left_elbow", "left_wrist", forward, bodyWidth, ref repairCount);
+                PushArmInFront(map, "right_shoulder", "right_elbow", "right_wrist", forward, bodyWidth, ref repairCount);
+
+                RepairFace(map, pelvis, right, up, forward, bodyWidth, ref repairCount);
+            }
+        }
+
+        private bool TryBuildBodyFrame(
+            Dictionary<string, Landmark> map,
+            ref Vector3 lastForward,
+            ref bool hasForward,
+            out Vector3 pelvis,
+            out Vector3 right,
+            out Vector3 up,
+            out Vector3 forward,
+            out float bodyWidth)
+        {
+            pelvis = Vector3.zero;
+            right = Vector3.right;
+            up = Vector3.up;
+            forward = Vector3.forward;
+            bodyWidth = 0f;
+
+            if (!map.TryGetValue("left_hip", out Landmark lHip) ||
+                !map.TryGetValue("right_hip", out Landmark rHip) ||
+                !map.TryGetValue("left_shoulder", out Landmark lShoulder) ||
+                !map.TryGetValue("right_shoulder", out Landmark rShoulder))
+            {
+                return false;
+            }
+
+            Vector3 leftHip = ToVector(lHip);
+            Vector3 rightHip = ToVector(rHip);
+            Vector3 leftShoulder = ToVector(lShoulder);
+            Vector3 rightShoulder = ToVector(rShoulder);
+            Vector3 shoulders = (leftShoulder + rightShoulder) * 0.5f;
+            pelvis = (leftHip + rightHip) * 0.5f;
+
+            up = shoulders - pelvis;
+            right = ((rightHip - leftHip) + (rightShoulder - leftShoulder)) * 0.5f;
+            if (up.sqrMagnitude < 0.0001f || right.sqrMagnitude < 0.0001f)
+                return false;
+
+            up.Normalize();
+            right = Vector3.ProjectOnPlane(right, up);
+            if (right.sqrMagnitude < 0.0001f)
+                return false;
+
+            right.Normalize();
+            forward = Vector3.Cross(right, up).normalized;
+            if (hasForward && Vector3.Dot(forward, lastForward) < 0f)
+                forward = -forward;
+
+            lastForward = forward;
+            hasForward = true;
+
+            bodyWidth = Mathf.Max(
+                Vector3.Distance(leftHip, rightHip),
+                Vector3.Distance(leftShoulder, rightShoulder));
+            return bodyWidth > 0.0001f;
+        }
+
+        private void EnsureLateralOrder(
+            Dictionary<string, Landmark> map,
+            string leftKey,
+            string rightKey,
+            Vector3 origin,
+            Vector3 rightAxis,
+            float minAbsLateral,
+            ref int repairCount)
+        {
+            if (!map.TryGetValue(leftKey, out Landmark leftLm) ||
+                !map.TryGetValue(rightKey, out Landmark rightLm))
+            {
+                return;
+            }
+
+            Vector3 left = ToVector(leftLm);
+            Vector3 right = ToVector(rightLm);
+            float leftLat = Vector3.Dot(left - origin, rightAxis);
+            float rightLat = Vector3.Dot(right - origin, rightAxis);
+            float pairCenterLat = (leftLat + rightLat) * 0.5f;
+            float halfWidth = Mathf.Max(minAbsLateral, Mathf.Abs(rightLat - leftLat) * 0.5f);
+            float targetLeftLat = pairCenterLat - halfWidth;
+            float targetRightLat = pairCenterLat + halfWidth;
+
+            bool changed = false;
+            if (leftLat > targetLeftLat)
+            {
+                left += rightAxis * (targetLeftLat - leftLat);
+                changed = true;
+            }
+
+            if (rightLat < targetRightLat)
+            {
+                right += rightAxis * (targetRightLat - rightLat);
+                changed = true;
+            }
+
+            if (!changed) return;
+            FromVector(leftLm, left);
+            FromVector(rightLm, right);
+            repairCount++;
+        }
+
+        private void PushArmInFront(
+            Dictionary<string, Landmark> map,
+            string shoulderKey,
+            string elbowKey,
+            string wristKey,
+            Vector3 forward,
+            float bodyWidth,
+            ref int repairCount)
+        {
+            if (!map.TryGetValue(shoulderKey, out Landmark shoulderLm))
+                return;
+
+            Vector3 shoulder = ToVector(shoulderLm);
+            float minForward = bodyWidth * minArmForwardRatio;
+            PushJointInFront(map, elbowKey, shoulder, forward, minForward, ref repairCount);
+            PushJointInFront(map, wristKey, shoulder, forward, minForward * 1.15f, ref repairCount);
+        }
+
+        private void PushJointInFront(
+            Dictionary<string, Landmark> map,
+            string jointKey,
+            Vector3 shoulder,
+            Vector3 forward,
+            float minForward,
+            ref int repairCount)
+        {
+            if (!map.TryGetValue(jointKey, out Landmark jointLm))
+                return;
+
+            Vector3 joint = ToVector(jointLm);
+            float currentForward = Vector3.Dot(joint - shoulder, forward);
+            if (currentForward >= minForward)
+                return;
+
+            joint += forward * (minForward - currentForward) * zStabilizationBlend;
+            FromVector(jointLm, joint);
+            repairCount++;
+        }
+
+        private void RepairFace(
+            Dictionary<string, Landmark> map,
+            Vector3 pelvis,
+            Vector3 right,
+            Vector3 up,
+            Vector3 forward,
+            float bodyWidth,
+            ref int repairCount)
+        {
+            if (!map.TryGetValue("left_shoulder", out Landmark lShoulderLm) ||
+                !map.TryGetValue("right_shoulder", out Landmark rShoulderLm))
+            {
+                return;
+            }
+
+            Vector3 shoulders = (ToVector(lShoulderLm) + ToVector(rShoulderLm)) * 0.5f;
+            Vector3 headCenter = shoulders + up * bodyWidth * 0.82f + forward * bodyWidth * 0.04f;
+            Vector3 leftEar = headCenter - right * bodyWidth * 0.18f - forward * bodyWidth * 0.02f;
+            Vector3 rightEar = headCenter + right * bodyWidth * 0.18f - forward * bodyWidth * 0.02f;
+            Vector3 nose = headCenter + forward * bodyWidth * 0.16f;
+            Vector3 leftEye = headCenter - right * bodyWidth * 0.07f + forward * bodyWidth * 0.1f + up * bodyWidth * 0.04f;
+            Vector3 rightEye = headCenter + right * bodyWidth * 0.07f + forward * bodyWidth * 0.1f + up * bodyWidth * 0.04f;
+            Vector3 mouthLeft = headCenter - right * bodyWidth * 0.05f + forward * bodyWidth * 0.12f - up * bodyWidth * 0.08f;
+            Vector3 mouthRight = headCenter + right * bodyWidth * 0.05f + forward * bodyWidth * 0.12f - up * bodyWidth * 0.08f;
+
+            BlendLandmark(map, "left_ear", leftEar, ref repairCount);
+            BlendLandmark(map, "right_ear", rightEar, ref repairCount);
+            BlendLandmark(map, "nose", nose, ref repairCount);
+            BlendLandmark(map, "left_eye", leftEye, ref repairCount);
+            BlendLandmark(map, "right_eye", rightEye, ref repairCount);
+            BlendLandmark(map, "left_eye_inner", Vector3.Lerp(leftEye, rightEye, 0.35f), ref repairCount);
+            BlendLandmark(map, "right_eye_inner", Vector3.Lerp(rightEye, leftEye, 0.35f), ref repairCount);
+            BlendLandmark(map, "left_eye_outer", leftEye - right * bodyWidth * 0.04f, ref repairCount);
+            BlendLandmark(map, "right_eye_outer", rightEye + right * bodyWidth * 0.04f, ref repairCount);
+            BlendLandmark(map, "mouth_left", mouthLeft, ref repairCount);
+            BlendLandmark(map, "mouth_right", mouthRight, ref repairCount);
+        }
+
+        private void BlendLandmark(Dictionary<string, Landmark> map, string key, Vector3 target, ref int repairCount)
+        {
+            if (!map.TryGetValue(key, out Landmark lm))
+                return;
+
+            Vector3 current = ToVector(lm);
+            Vector3 repaired = Vector3.Lerp(current, target, faceRepairBlend);
+            FromVector(lm, repaired);
+            lm.visibility = Mathf.Max(lm.visibility, 0.85f);
+            repairCount++;
         }
 
         private void StabilizeArmSequence(PoseSequence sequence, bool leftArm, ref int repairCount, ref int depthFixCount)

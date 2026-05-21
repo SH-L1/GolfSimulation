@@ -45,6 +45,9 @@ namespace GolfSimulation.Core
         public int CurrentFrameIndex => currentFrameIndex;
         public int TotalFrames => dataLoader != null && dataLoader.IsLoaded ? dataLoader.Sequence.total_frames : 0;
         public bool IsPlaying => isPlaying;
+        public PoseDataLoader DataLoader => dataLoader;
+        public BoneMapper BoneMapper => boneMapper;
+        public Animator TargetAnimator => targetAnimator;
         public string CurrentPhase => currentPhase;
         public float PlaybackSpeedValue { get => playbackSpeed; set => playbackSpeed = Mathf.Clamp(value, 0.1f, 3f); }
         public bool EnableInterpolation { get => enableInterpolation; set => enableInterpolation = value; }
@@ -52,6 +55,15 @@ namespace GolfSimulation.Core
         public float FilterMinCutoff { get => filterMinCutoff; set => filterMinCutoff = value; }
         public float FilterBeta { get => filterBeta; set => filterBeta = value; }
         public float FilterDCutoff { get => filterDCutoff; set => filterDCutoff = value; }
+
+        public void Configure(PoseDataLoader loader, BoneMapper mapper, Animator animator, bool playAutomatically, bool shouldLoop)
+        {
+            dataLoader = loader;
+            boneMapper = mapper;
+            targetAnimator = animator;
+            autoPlay = playAutomatically;
+            loop = shouldLoop;
+        }
 
         private void Start()
         {
@@ -235,7 +247,7 @@ namespace GolfSimulation.Core
                 filterMinCutoff, filterBeta, filterDCutoff);
 
             Play();
-            Debug.Log($"[SwingPlayer] ReinitializeWithLoader 완료 — {TotalFrames}프레임");
+            Debug.Log($"[SwingPlayer] ReinitializeWithLoader complete: {TotalFrames} frames");
         }
 
         public void Play()

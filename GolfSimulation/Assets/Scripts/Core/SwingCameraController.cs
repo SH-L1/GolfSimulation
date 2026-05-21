@@ -18,8 +18,13 @@ namespace GolfSimulation.Core
         [SerializeField][Range(1f, 30f)] private float followSharpness = 14f;
 
         [Header("Input")]
-        [SerializeField] private bool cycleOnTap = true;
+        [SerializeField] private bool cycleOnTap = false;
         [SerializeField][Min(1f)] private float tapMoveTolerance = 18f;
+        [SerializeField] private bool orbitOnDrag = true;
+        [SerializeField][Range(0.02f, 1f)] private float orbitSensitivity = 0.18f;
+        [SerializeField][Range(-80f, 10f)] private float minPitch = -35f;
+        [SerializeField][Range(-10f, 80f)] private float maxPitch = 55f;
+        [SerializeField][Range(-30f, 30f)] private float defaultPitch = 12f;
 
         [Header("Preset Angles")]
         [SerializeField] private float[] yawOffsets =
@@ -30,18 +35,24 @@ namespace GolfSimulation.Core
         private int viewIndex;
         private bool pointerDown;
         private Vector2 pointerDownPosition;
+        private Vector2 previousPointerPosition;
+        private bool pointerDragged;
+        private float yaw;
+        private float pitch;
 
         private void Awake()
         {
             ResolveTarget();
             viewIndex = 0;
+            yaw = 0f;
+            pitch = defaultPitch;
             ApplyCamera(true);
         }
 
         private void LateUpdate()
         {
             ResolveTarget();
-            HandleTapInput();
+            HandlePointerInput();
             ApplyCamera(false);
         }
 
@@ -98,6 +109,8 @@ namespace GolfSimulation.Core
             }
 
             viewIndex = ((nextIndex % yawOffsets.Length) + yawOffsets.Length) % yawOffsets.Length;
+            yaw = yawOffsets[viewIndex];
+            pitch = defaultPitch;
         }
 
         private void ResolveTarget()
@@ -118,44 +131,41 @@ namespace GolfSimulation.Core
             }
         }
 
-        private void HandleTapInput()
+        private void HandlePointerInput()
         {
-            if (!cycleOnTap)
-            {
-                return;
-            }
-
 #if ENABLE_INPUT_SYSTEM
-            HandleInputSystemTap();
+            HandleInputSystemPointer();
 #elif ENABLE_LEGACY_INPUT_MANAGER
-            HandleLegacyTap();
+            HandleLegacyPointer();
 #endif
         }
 
 #if ENABLE_INPUT_SYSTEM
-        private void HandleInputSystemTap()
+        private void HandleInputSystemPointer()
         {
-            if (TryGetTouchInput(out Vector2 touchPosition, out bool touchPressed, out bool touchReleased))
+            if (TryGetTouchInput(out Vector2 touchPosition, out bool touchPressed, out bool touchReleased, out bool touchHeld))
             {
-                UpdateTapState(touchPosition, touchPressed, touchReleased);
+                UpdatePointerState(touchPosition, touchPressed, touchReleased, touchHeld);
                 return;
             }
 
             if (Mouse.current != null)
             {
                 Vector2 mousePosition = Mouse.current.position.ReadValue();
-                UpdateTapState(
+                UpdatePointerState(
                     mousePosition,
                     Mouse.current.leftButton.wasPressedThisFrame,
-                    Mouse.current.leftButton.wasReleasedThisFrame);
+                    Mouse.current.leftButton.wasReleasedThisFrame,
+                    Mouse.current.leftButton.isPressed);
             }
         }
 
-        private static bool TryGetTouchInput(out Vector2 position, out bool pressed, out bool released)
+        private static bool TryGetTouchInput(out Vector2 position, out bool pressed, out bool released, out bool held)
         {
             position = Vector2.zero;
             pressed = false;
             released = false;
+            held = false;
 
             if (Touchscreen.current == null)
             {
@@ -165,8 +175,9 @@ namespace GolfSimulation.Core
             var touch = Touchscreen.current.primaryTouch;
             pressed = touch.press.wasPressedThisFrame;
             released = touch.press.wasReleasedThisFrame;
+            held = touch.press.isPressed;
 
-            if (!pressed && !released && !touch.press.isPressed)
+            if (!pressed && !released && !held)
             {
                 return false;
             }
@@ -177,18 +188,22 @@ namespace GolfSimulation.Core
 #endif
 
 #if ENABLE_LEGACY_INPUT_MANAGER
-        private void HandleLegacyTap()
+        private void HandleLegacyPointer()
         {
             if (Input.touchCount > 0)
             {
                 Touch touch = Input.GetTouch(0);
                 if (touch.phase == TouchPhase.Began)
                 {
-                    UpdateTapState(touch.position, true, false);
+                    UpdatePointerState(touch.position, true, false, true);
+                }
+                else if (touch.phase == TouchPhase.Moved || touch.phase == TouchPhase.Stationary)
+                {
+                    UpdatePointerState(touch.position, false, false, true);
                 }
                 else if (touch.phase == TouchPhase.Ended)
                 {
-                    UpdateTapState(touch.position, false, true);
+                    UpdatePointerState(touch.position, false, true, false);
                 }
                 else if (touch.phase == TouchPhase.Canceled)
                 {
@@ -198,21 +213,40 @@ namespace GolfSimulation.Core
                 return;
             }
 
-            UpdateTapState(Input.mousePosition, Input.GetMouseButtonDown(0), Input.GetMouseButtonUp(0));
+            UpdatePointerState(Input.mousePosition, Input.GetMouseButtonDown(0), Input.GetMouseButtonUp(0), Input.GetMouseButton(0));
         }
 #endif
 
-        private void UpdateTapState(Vector2 position, bool pressed, bool released)
+        private void UpdatePointerState(Vector2 position, bool pressed, bool released, bool held)
         {
             if (pressed)
             {
                 pointerDown = true;
                 pointerDownPosition = position;
+                previousPointerPosition = position;
+                pointerDragged = false;
+                return;
             }
-            else if (pointerDown && released)
+
+            if (pointerDown && held && orbitOnDrag)
+            {
+                Vector2 delta = position - previousPointerPosition;
+                previousPointerPosition = position;
+
+                if (delta.sqrMagnitude > 0.01f)
+                {
+                    yaw += delta.x * orbitSensitivity;
+                    pitch = Mathf.Clamp(pitch - delta.y * orbitSensitivity, minPitch, maxPitch);
+                }
+
+                if ((position - pointerDownPosition).magnitude > tapMoveTolerance)
+                    pointerDragged = true;
+            }
+
+            if (pointerDown && released)
             {
                 pointerDown = false;
-                if ((position - pointerDownPosition).magnitude <= tapMoveTolerance)
+                if (cycleOnTap && !pointerDragged && (position - pointerDownPosition).magnitude <= tapMoveTolerance)
                 {
                     NextCameraView();
                 }
@@ -233,9 +267,15 @@ namespace GolfSimulation.Core
                 flatForward = Vector3.forward;
             }
 
-            float yaw = yawOffsets != null && yawOffsets.Length > 0 ? yawOffsets[viewIndex] : 0f;
             Vector3 rearDirection = -flatForward.normalized;
-            Vector3 cameraDirection = Quaternion.AngleAxis(yaw, Vector3.up) * rearDirection;
+            Vector3 yawDirection = Quaternion.AngleAxis(yaw, Vector3.up) * rearDirection;
+            Vector3 pitchAxis = Vector3.Cross(Vector3.up, yawDirection).normalized;
+            if (pitchAxis.sqrMagnitude < 0.0001f)
+            {
+                pitchAxis = Vector3.right;
+            }
+
+            Vector3 cameraDirection = Quaternion.AngleAxis(pitch, pitchAxis) * yawDirection;
             Vector3 desiredPosition = pivot + cameraDirection.normalized * distance + Vector3.up * verticalOffset;
             Quaternion desiredRotation = Quaternion.LookRotation((pivot - desiredPosition).normalized, Vector3.up);
 

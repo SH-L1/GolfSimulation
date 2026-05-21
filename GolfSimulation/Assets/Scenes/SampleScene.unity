@@ -280,8 +280,13 @@ MonoBehaviour:
   distance: 3
   verticalOffset: 0
   followSharpness: 14
-  cycleOnTap: 1
+  cycleOnTap: 0
   tapMoveTolerance: 18
+  orbitOnDrag: 1
+  orbitSensitivity: 0.18
+  minPitch: -35
+  maxPitch: 55
+  defaultPitch: 12
   yawOffsets:
   - 0
   - 45
@@ -450,6 +455,11 @@ MonoBehaviour:
   swingPlayer: {fileID: 572169720}
   dataLoader: {fileID: 572169722}
   cameraController: {fileID: 330585548}
+  createReferenceOverlay: 1
+  referencePoseFileName: 613_square_cleanswing.json
+  referenceOverlayOffset: {x: 0, y: 0, z: 0}
+  userAvatarTint: {r: 1, g: 1, b: 1, a: 1}
+  referenceAvatarTint: {r: 0.25, g: 0.55, b: 1, a: 0.42}
   showDebugInfo: 0
 --- !u!4 &453720801
 Transform:
@@ -621,10 +631,10 @@ MonoBehaviour:
   enableBodyFrameCalibration: 1
   preserveBodySideContinuity: 1
   useBackFacingBodyFrame: 1
-  preserveGolfForwardBend: 0
+  preserveGolfForwardBend: 1
   minAddressForwardBend: 22
   maxAddressForwardBend: 38
-  spineForwardBendWeight: 0
+  spineForwardBendWeight: 0.35
   pelvisTrunkTiltWeight: 0.05
   enableHipDepthCompensation: 1
   addressHipBackOffset: 0.22
@@ -639,26 +649,28 @@ MonoBehaviour:
   useConstrainedArmIK: 1
   skipArmFKWhenUsingIK: 1
   constrainedArmIKWeight: 1
-  elbowHintDataWeight: 0.85
+  elbowHintDataWeight: 0.18
   elbowForwardBias: 0.04
   forceArmsInFrontOfTorso: 1
-  minArmForwardOffset: 0.035
+  minArmForwardOffset: 0.12
   enableTwoHandGripPose: 1
   targetHandSeparation: 0.07
   gripTargetBlend: 1
   handOrientationWeight: 0.9
-  gripForwardOffset: 0.035
+  gripForwardOffset: 0.06
   enableHeadStabilization: 1
-  useHandsAsHeadLookTarget: 0
-  neckDataWeight: 0.18
-  headDataWeight: 0.18
-  maxHeadAngleFromTorso: 28
+  useHandsAsHeadLookTarget: 1
+  ignoreUnstableFaceLandmarks: 1
+  neckDataWeight: 0.05
+  headDataWeight: 0.45
+  headHandLookBlend: 0.35
+  maxHeadAngleFromTorso: 38
   useConstrainedLegIK: 1
   skipLegFKWhenUsingIK: 1
-  constrainedLegIKWeight: 0.85
-  kneeHintDataWeight: 0.35
-  footLockRadius: 0.08
-  footLockWeight: 0.85
+  constrainedLegIKWeight: 1
+  kneeHintDataWeight: 0.08
+  footLockRadius: 0.14
+  footLockWeight: 0.65
   enableFootStabilization: 1
   footDataWeight: 0.22
   maxFootAngleFromRest: 24
@@ -677,8 +689,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0d510f147444f4e42b76e38e7d8944e2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GolfSimulation.Data.PoseDataLoader
-  fileName: golf_swing_pose.json
+  fileName: 613_square_cleanswing.json
   usePoseCache: 0
+  searchPreprocessedFaceOn: 1
   poseCache: {fileID: 0}
 --- !u!114 &572169727
 MonoBehaviour:
@@ -711,14 +724,18 @@ MonoBehaviour:
   maxJumpPerFrame: 0.18
   hardClampThreshold: 1.5
   extrapolationBlend: 0.15
-  enableDepthClamping: 0
+  enableDepthClamping: 1
   maxArmBehindShoulder: 0.2
-  enableSequenceArmStabilization: 0
+  enableSequenceArmStabilization: 1
   stableVisibilityThreshold: 0.35
   sequenceJumpThreshold: 0.14
   maxInterpolationGap: 18
   smoothingBlend: 0.35
   zStabilizationBlend: 0.65
+  enableAnatomicalFrameRepair: 1
+  minLegSideRatio: 0.24
+  minArmForwardRatio: 0.22
+  faceRepairBlend: 0.9
   showStats: 0
 --- !u!1 &832575517
 GameObject:

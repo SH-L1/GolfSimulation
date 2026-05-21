@@ -7,8 +7,9 @@ namespace GolfSimulation.Data
     public class PoseDataLoader : MonoBehaviour
     {
         [Header("Settings")]
-        [SerializeField] private string fileName = "golf_swing_pose.json";
+        [SerializeField] private string fileName = "613_square_cleanswing.json";
         [SerializeField] private bool usePoseCache = false;
+        [SerializeField] private bool searchPreprocessedFaceOn = true;
 
         [Header("Cache")]
         [Tooltip("Optional binary pose cache. Disabled by default so StreamingAssets JSON stays authoritative.")]
@@ -49,7 +50,7 @@ namespace GolfSimulation.Data
                 Debug.LogWarning("[PoseDataLoader] Pose cache is invalid. Falling back to JSON.");
             }
 
-            string path = Path.Combine(Application.streamingAssetsPath, fileName);
+            string path = ResolvePosePath(fileName);
 
             if (!File.Exists(path))
             {
@@ -71,6 +72,33 @@ namespace GolfSimulation.Data
 
             IsLoaded = true;
             LogLoadSummary(path);
+        }
+
+        private string ResolvePosePath(string requestedFileName)
+        {
+            if (string.IsNullOrWhiteSpace(requestedFileName))
+                return Path.Combine(Application.streamingAssetsPath, fileName);
+
+            if (Path.IsPathRooted(requestedFileName))
+                return requestedFileName;
+
+            string directStreamingPath = Path.Combine(Application.streamingAssetsPath, requestedFileName);
+            if (File.Exists(directStreamingPath))
+                return directStreamingPath;
+
+            string nestedStreamingPath = Path.Combine(Application.streamingAssetsPath, "preprocessed", "face_on", requestedFileName);
+            if (File.Exists(nestedStreamingPath))
+                return nestedStreamingPath;
+
+            if (searchPreprocessedFaceOn)
+            {
+                string projectRootPath = Path.GetFullPath(Path.Combine(
+                    Application.dataPath, "..", "..", "data", "preprocessed", "face_on", requestedFileName));
+                if (File.Exists(projectRootPath))
+                    return projectRootPath;
+            }
+
+            return directStreamingPath;
         }
 
         private void ResolveAddressFrame()

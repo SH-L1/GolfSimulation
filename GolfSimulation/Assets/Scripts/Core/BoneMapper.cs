@@ -29,25 +29,25 @@ namespace GolfSimulation.Core
         [SerializeField] private bool useBackFacingBodyFrame = true;
 
         [Header("Golf Posture")]
-        [SerializeField] private bool preserveGolfForwardBend = false;
+        [SerializeField] private bool preserveGolfForwardBend = true;
         [SerializeField][Range(8f, 45f)] private float minAddressForwardBend = 22f;
         [SerializeField][Range(8f, 55f)] private float maxAddressForwardBend = 38f;
-        [SerializeField][Range(0f, 1f)] private float spineForwardBendWeight = 0f;
+        [SerializeField][Range(0f, 1f)] private float spineForwardBendWeight = 0.35f;
         [SerializeField][Range(0f, 0.35f)] private float pelvisTrunkTiltWeight = 0.05f;
         [SerializeField] private bool enableHipDepthCompensation = true;
         [SerializeField][Range(0f, 0.5f)] private float addressHipBackOffset = 0.22f;
         [SerializeField][Range(0f, 1f)] private float hipDepthCompensationWeight = 1f;
 
         [Header("Rotation Smoothing")]
-        [SerializeField] private bool enableSmoothing = false;
+        [SerializeField] private bool enableSmoothing = true;
 
         [Header("Finish Blend")]
-        [SerializeField] private bool enableFinishBlend = false;
+        [SerializeField] private bool enableFinishBlend = true;
         [SerializeField][Range(0.1f, 0.8f)] private float finishVisThreshold = 0.5f;
         [SerializeField][Range(0.1f, 2f)] private float finishHoldTime = 0.5f;
 
         [Header("Arm Protection")]
-        [SerializeField] private bool enableArmProtection = false;
+        [SerializeField] private bool enableArmProtection = true;
         [SerializeField][Range(0f, 0.6f)] private float armFreezeVisThreshold = 0.35f;
         [SerializeField][Range(90f, 160f)] private float maxElbowAngle = 140f;
 
@@ -59,32 +59,34 @@ namespace GolfSimulation.Core
         [SerializeField][Range(0f, 1f)] private float constrainedArmIKWeight = 1f;
 
         [Header("Arm Bend Plane")]
-        [SerializeField][Range(0f, 1f)] private float elbowHintDataWeight = 0.25f;
+        [SerializeField][Range(0f, 1f)] private float elbowHintDataWeight = 0.18f;
         [SerializeField][Range(0f, 0.25f)] private float elbowForwardBias = 0.04f;
         [SerializeField] private bool forceArmsInFrontOfTorso = true;
-        [SerializeField][Range(0f, 0.25f)] private float minArmForwardOffset = 0.08f;
+        [SerializeField][Range(0f, 0.25f)] private float minArmForwardOffset = 0.12f;
 
         [Header("Two Hand Pose")]
         [SerializeField] private bool enableTwoHandGripPose = true;
         [SerializeField][Range(0.03f, 0.3f)] private float targetHandSeparation = 0.07f;
         [SerializeField][Range(0f, 1f)] private float gripTargetBlend = 1f;
         [SerializeField][Range(0f, 1f)] private float handOrientationWeight = 0.9f;
-        [SerializeField][Range(0f, 0.15f)] private float gripForwardOffset = 0.035f;
+        [SerializeField][Range(0f, 0.15f)] private float gripForwardOffset = 0.06f;
 
         [Header("Head Stabilization")]
         [SerializeField] private bool enableHeadStabilization = true;
-        [SerializeField] private bool useHandsAsHeadLookTarget = false;
-        [SerializeField][Range(0f, 1f)] private float neckDataWeight = 0.18f;
-        [SerializeField][Range(0f, 1f)] private float headDataWeight = 0.18f;
-        [SerializeField][Range(10f, 80f)] private float maxHeadAngleFromTorso = 28f;
+        [SerializeField] private bool useHandsAsHeadLookTarget = true;
+        [SerializeField] private bool ignoreUnstableFaceLandmarks = true;
+        [SerializeField][Range(0f, 1f)] private float neckDataWeight = 0.05f;
+        [SerializeField][Range(0f, 1f)] private float headDataWeight = 0.45f;
+        [SerializeField][Range(0f, 1f)] private float headHandLookBlend = 0.35f;
+        [SerializeField][Range(10f, 80f)] private float maxHeadAngleFromTorso = 38f;
 
         [Header("Constrained Leg IK")]
         [SerializeField] private bool useConstrainedLegIK = true;
         [SerializeField] private bool skipLegFKWhenUsingIK = true;
-        [SerializeField][Range(0f, 1f)] private float constrainedLegIKWeight = 0.85f;
-        [SerializeField][Range(0f, 1f)] private float kneeHintDataWeight = 0.18f;
-        [SerializeField][Range(0f, 0.35f)] private float footLockRadius = 0.08f;
-        [SerializeField][Range(0f, 1f)] private float footLockWeight = 0.85f;
+        [SerializeField][Range(0f, 1f)] private float constrainedLegIKWeight = 1f;
+        [SerializeField][Range(0f, 1f)] private float kneeHintDataWeight = 0.08f;
+        [SerializeField][Range(0f, 0.35f)] private float footLockRadius = 0.14f;
+        [SerializeField][Range(0f, 1f)] private float footLockWeight = 0.65f;
 
         [Header("Foot Stabilization")]
         [SerializeField] private bool enableFootStabilization = true;
@@ -605,9 +607,15 @@ namespace GolfSimulation.Core
                 sourceRestTrunkDir = SafeDir(shoulders - pelvis, Vector3.up);
             }
 
-            sourceRestNeckDir = SafeDir(ears - shoulders, sourceRestTrunkDir);
-            sourceRestHeadForward = ResolveHeadForward(nose, ears, lWrist, rWrist);
-            sourceRestEarRight = SafeDir(rEar - lEar, sourceRestShoulderRight);
+            sourceRestNeckDir = ignoreUnstableFaceLandmarks
+                ? sourceRestTrunkDir
+                : SafeDir(ears - shoulders, sourceRestTrunkDir);
+            sourceRestHeadForward = ignoreUnstableFaceLandmarks
+                ? GetAnatomicalFrontDirection()
+                : ResolveHeadForward(nose, ears, lWrist, rWrist);
+            sourceRestEarRight = ignoreUnstableFaceLandmarks
+                ? sourceRestShoulderRight
+                : SafeDir(rEar - lEar, sourceRestShoulderRight);
 
             sourceRestLeftUpperArmDir = SafeDir(lElbow - lShoulder, Vector3.left);
             sourceRestLeftLowerArmDir = SafeDir(lWrist - lElbow, Vector3.left);
@@ -702,12 +710,16 @@ namespace GolfSimulation.Core
 
             ApplyGolfForwardBend();
 
-            Vector3 neckDir = (ears - shoulders).normalized;
+            Vector3 neckDir = ignoreUnstableFaceLandmarks
+                ? lastTrunkDir
+                : (ears - shoulders).normalized;
             if (neckCache.bone != null && neckDir.sqrMagnitude > 0.001f)
                 ApplyNeckRotation(ref neckCache, neckDir, shoulderRight);
 
             Vector3 headFwd = ResolveHeadForward(nose, ears, lWrist, rWrist);
-            Vector3 earRight = (rEar - lEar).normalized;
+            Vector3 earRight = ignoreUnstableFaceLandmarks
+                ? shoulderRight
+                : (rEar - lEar).normalized;
             Vector3 headUp = Vector3.Cross(earRight, headFwd).normalized;
             if (headCache.bone != null && headFwd.sqrMagnitude > 0.001f)
                 ApplyHeadRotation(ref headCache, headFwd, earRight, shoulderRight, lWrist, rWrist);
@@ -748,9 +760,6 @@ namespace GolfSimulation.Core
 
             if (referenceRight.sqrMagnitude < 0.0001f)
                 return;
-
-            if (useBackFacingBodyFrame)
-                referenceRight = -referenceRight;
 
             if (Vector3.Dot(bodyRight.normalized, referenceRight.normalized) < 0f)
             {
@@ -1538,6 +1547,30 @@ namespace GolfSimulation.Core
 
         private Vector3 ResolveHeadForward(Vector3 nose, Vector3 ears, Vector3 leftWrist, Vector3 rightWrist)
         {
+            Vector3 anatomicalFront = GetAnatomicalFrontDirection();
+            if (ignoreUnstableFaceLandmarks)
+            {
+                Vector3 candidate = anatomicalFront.sqrMagnitude > 0.001f
+                    ? anatomicalFront.normalized
+                    : avatarForwardReference.normalized;
+
+                if (useHandsAsHeadLookTarget)
+                {
+                    Vector3 handsCenter = (leftWrist + rightWrist) * 0.5f;
+                    Vector3 handLook = handsCenter - ears;
+                    handLook = Vector3.ProjectOnPlane(handLook, lastTrunkDir);
+                    if (handLook.sqrMagnitude > 0.0001f)
+                        candidate = Vector3.Slerp(candidate, handLook.normalized, headHandLookBlend).normalized;
+                }
+
+                if (hasStableHeadForward)
+                    candidate = Vector3.Slerp(lastStableHeadForward, candidate, 0.35f).normalized;
+
+                lastStableHeadForward = candidate;
+                hasStableHeadForward = true;
+                return candidate;
+            }
+
             Vector3 faceForward = nose - ears;
             if (useHandsAsHeadLookTarget)
             {
@@ -1545,7 +1578,7 @@ namespace GolfSimulation.Core
                 Vector3 handLook = handsCenter - ears;
                 handLook = Vector3.ProjectOnPlane(handLook, lastTrunkDir);
                 if (handLook.sqrMagnitude > 0.0001f)
-                    return Vector3.Slerp(GetAnatomicalFrontDirection(), handLook.normalized, 0.65f).normalized;
+                    return Vector3.Slerp(anatomicalFront, handLook.normalized, 0.65f).normalized;
             }
 
             if (faceForward.sqrMagnitude > 0.0001f)
@@ -1555,7 +1588,6 @@ namespace GolfSimulation.Core
                 if (!enableHeadStabilization)
                     return candidate;
 
-                Vector3 anatomicalFront = GetAnatomicalFrontDirection();
                 if (anatomicalFront.sqrMagnitude > 0.001f && Vector3.Dot(candidate, anatomicalFront.normalized) < 0.15f)
                     candidate = anatomicalFront.normalized;
 

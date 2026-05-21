@@ -1,5 +1,8 @@
 using System;
+using System.Collections;
+using GolfSimulation.Correction;
 using GolfSimulation.Data;
+using GolfSimulation.IK;
 using UnityEngine;
 
 namespace GolfSimulation.Core
@@ -35,6 +38,13 @@ namespace GolfSimulation.Core
         [SerializeField] private PoseDataLoader dataLoader;
         [SerializeField] private SwingCameraController cameraController;
 
+        [Header("Comparison Overlay")]
+        [SerializeField] private bool createReferenceOverlay = true;
+        [SerializeField] private string referencePoseFileName = "613_square_cleanswing.json";
+        [SerializeField] private Vector3 referenceOverlayOffset = Vector3.zero;
+        [SerializeField] private Color userAvatarTint = new Color(1f, 1f, 1f, 1f);
+        [SerializeField] private Color referenceAvatarTint = new Color(0.25f, 0.55f, 1f, 0.42f);
+
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
 
@@ -60,6 +70,9 @@ namespace GolfSimulation.Core
 
         private string prevPhase = "";
         private bool wasPlaying = false;
+        private GameObject referenceAvatar;
+        private SwingPlayer referenceSwingPlayer;
+        private PoseDataLoader referenceDataLoader;
 
         // ──────────────────────────────────────────────────────────────────────
         // 초기화
@@ -83,7 +96,95 @@ namespace GolfSimulation.Core
 
         private void Start()
         {
+            if (createReferenceOverlay)
+                StartCoroutine(CreateReferenceOverlayAfterStartup());
+
+            ApplyAvatarTint(swingPlayer?.TargetAnimator?.gameObject, userAvatarTint);
             Debug.Log("[SwingCtrl] 초기화 완료 — UaaL API 준비됨");
+        }
+
+        private IEnumerator CreateReferenceOverlayAfterStartup()
+        {
+            yield return null;
+
+            if (swingPlayer == null || swingPlayer.TargetAnimator == null || referenceAvatar != null)
+                yield break;
+
+            GameObject sourceAvatar = swingPlayer.TargetAnimator.gameObject;
+            referenceAvatar = Instantiate(
+                sourceAvatar,
+                sourceAvatar.transform.position + referenceOverlayOffset,
+                sourceAvatar.transform.rotation,
+                sourceAvatar.transform.parent);
+            referenceAvatar.name = "Reference Swing Avatar";
+
+            DisableCopiedGolfSimulationComponents(referenceAvatar);
+            ApplyAvatarTint(referenceAvatar, referenceAvatarTint);
+
+            Animator referenceAnimator = referenceAvatar.GetComponentInChildren<Animator>();
+            if (referenceAnimator == null)
+            {
+                Debug.LogError("[SwingCtrl] Failed to create reference overlay: Animator not found on clone.");
+                Destroy(referenceAvatar);
+                referenceAvatar = null;
+                yield break;
+            }
+
+            referenceDataLoader = referenceAvatar.AddComponent<PoseDataLoader>();
+            referenceDataLoader.LoadFromFile(referencePoseFileName);
+
+            referenceAvatar.AddComponent<PoseCorrector>();
+            referenceAvatar.AddComponent<IKController>();
+            BoneMapper referenceBoneMapper = referenceAvatar.AddComponent<BoneMapper>();
+            referenceSwingPlayer = referenceAvatar.AddComponent<SwingPlayer>();
+            referenceSwingPlayer.Configure(referenceDataLoader, referenceBoneMapper, referenceAnimator, true, true);
+
+            Debug.Log($"[SwingCtrl] Reference overlay ready: {referencePoseFileName}");
+        }
+
+        private static void DisableCopiedGolfSimulationComponents(GameObject root)
+        {
+            if (root == null) return;
+
+            MonoBehaviour[] behaviours = root.GetComponentsInChildren<MonoBehaviour>(true);
+            foreach (MonoBehaviour behaviour in behaviours)
+            {
+                Type type = behaviour.GetType();
+                if (type.Namespace != null && type.Namespace.StartsWith("GolfSimulation", StringComparison.Ordinal))
+                    behaviour.enabled = false;
+            }
+        }
+
+        private static void ApplyAvatarTint(GameObject root, Color tint)
+        {
+            if (root == null) return;
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer renderer in renderers)
+            {
+                Material[] materials = renderer.materials;
+                foreach (Material material in materials)
+                    ApplyMaterialTint(material, tint);
+            }
+        }
+
+        private static void ApplyMaterialTint(Material material, Color tint)
+        {
+            if (material == null) return;
+
+            if (material.HasProperty("_BaseColor"))
+                material.SetColor("_BaseColor", tint);
+            else if (material.HasProperty("_Color"))
+                material.SetColor("_Color", tint);
+
+            if (tint.a >= 0.99f) return;
+
+            material.SetFloat("_Surface", 1f);
+            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_ZWrite", 0f);
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
         }
 
         private void Update()
@@ -180,6 +281,33 @@ namespace GolfSimulation.Core
         {
             cameraController?.ResetToRearView();
             Debug.Log("[SwingCtrl] ResetCameraView");
+        }
+
+        public void SetComparisonOverlayEnabled(string enabled)
+        {
+            bool isEnabled = string.IsNullOrEmpty(enabled) ||
+                enabled == "1" ||
+                enabled.Equals("true", StringComparison.OrdinalIgnoreCase);
+
+            if (referenceAvatar != null)
+                referenceAvatar.SetActive(isEnabled);
+
+            Debug.Log($"[SwingCtrl] Comparison overlay = {isEnabled}");
+        }
+
+        public void LoadReferenceSwingData(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName) || referenceDataLoader == null || referenceSwingPlayer == null)
+                return;
+
+            referenceSwingPlayer.Stop();
+            referenceDataLoader.LoadFromFile(fileName);
+            if (referenceDataLoader.IsLoaded)
+            {
+                referenceSwingPlayer.ReinitializeWithLoader();
+                referencePoseFileName = fileName;
+                Debug.Log($"[SwingCtrl] LoadReferenceSwingData complete: {fileName}");
+            }
         }
 
         /// <summary>
