@@ -42,6 +42,7 @@ namespace GolfSimulation.Core
         [SerializeField] private bool createReferenceOverlay = true;
         [SerializeField] private string referencePoseFileName = "613_square_cleanswing.json";
         [SerializeField] private Vector3 referenceOverlayOffset = Vector3.zero;
+        [SerializeField] private bool syncReferencePlayback = true;
         [SerializeField] private Color userAvatarTint = new Color(1f, 1f, 1f, 1f);
         [SerializeField] private Color referenceAvatarTint = new Color(0.25f, 0.55f, 1f, 0.42f);
 
@@ -137,7 +138,12 @@ namespace GolfSimulation.Core
             referenceAvatar.AddComponent<IKController>();
             BoneMapper referenceBoneMapper = referenceAvatar.AddComponent<BoneMapper>();
             referenceSwingPlayer = referenceAvatar.AddComponent<SwingPlayer>();
-            referenceSwingPlayer.Configure(referenceDataLoader, referenceBoneMapper, referenceAnimator, true, true);
+            referenceSwingPlayer.Configure(referenceDataLoader, referenceBoneMapper, referenceAnimator, swingPlayer == null || swingPlayer.IsPlaying, true);
+            referenceSwingPlayer.PlaybackSpeedValue = swingPlayer != null ? swingPlayer.PlaybackSpeedValue : 1f;
+
+            yield return null;
+            if (syncReferencePlayback)
+                SyncReferenceToUserFrame();
 
             Debug.Log($"[SwingCtrl] Reference overlay ready: {referencePoseFileName}");
         }
@@ -222,6 +228,8 @@ namespace GolfSimulation.Core
         public void Play(string _ = "")
         {
             swingPlayer?.Play();
+            if (syncReferencePlayback)
+                referenceSwingPlayer?.Play();
             Debug.Log("[SwingCtrl] Play");
         }
 
@@ -229,6 +237,8 @@ namespace GolfSimulation.Core
         public void Pause(string _ = "")
         {
             swingPlayer?.Pause();
+            if (syncReferencePlayback)
+                referenceSwingPlayer?.Pause();
             Debug.Log("[SwingCtrl] Pause");
         }
 
@@ -236,6 +246,8 @@ namespace GolfSimulation.Core
         public void Stop(string _ = "")
         {
             swingPlayer?.Stop();
+            if (syncReferencePlayback)
+                referenceSwingPlayer?.Stop();
             Debug.Log("[SwingCtrl] Stop");
         }
 
@@ -248,6 +260,8 @@ namespace GolfSimulation.Core
             if (float.TryParse(speedStr, out float speed) && swingPlayer != null)
             {
                 swingPlayer.PlaybackSpeedValue = speed;
+                if (syncReferencePlayback && referenceSwingPlayer != null)
+                    referenceSwingPlayer.PlaybackSpeedValue = speed;
                 Debug.Log($"[SwingCtrl] PlaybackSpeed = {speed}");
             }
         }
@@ -261,6 +275,8 @@ namespace GolfSimulation.Core
             if (int.TryParse(frameStr, out int frame) && swingPlayer != null)
             {
                 swingPlayer.SetFrame(frame);
+                if (syncReferencePlayback)
+                    SyncReferenceToUserFrame();
                 Debug.Log($"[SwingCtrl] SeekFrame = {frame}");
             }
         }
@@ -295,6 +311,67 @@ namespace GolfSimulation.Core
             Debug.Log($"[SwingCtrl] Comparison overlay = {isEnabled}");
         }
 
+        public void SetComparisonSyncEnabled(string enabled)
+        {
+            syncReferencePlayback = string.IsNullOrEmpty(enabled) ||
+                enabled == "1" ||
+                enabled.Equals("true", StringComparison.OrdinalIgnoreCase);
+
+            if (syncReferencePlayback)
+                SyncReferenceToUserFrame();
+
+            Debug.Log($"[SwingCtrl] Comparison sync = {syncReferencePlayback}");
+        }
+
+        public void PlayUser(string _ = "") => swingPlayer?.Play();
+        public void PauseUser(string _ = "") => swingPlayer?.Pause();
+        public void StopUser(string _ = "") => swingPlayer?.Stop();
+        public void PlayReference(string _ = "") => referenceSwingPlayer?.Play();
+        public void PauseReference(string _ = "") => referenceSwingPlayer?.Pause();
+        public void StopReference(string _ = "") => referenceSwingPlayer?.Stop();
+
+        public void SeekReferenceFrame(string frameStr)
+        {
+            if (int.TryParse(frameStr, out int frame))
+                referenceSwingPlayer?.SetFrame(frame);
+        }
+
+        public void LoadSwingDataByIndex(string indexStr)
+        {
+            if (!int.TryParse(indexStr, out int index) || dataLoader == null || swingPlayer == null)
+                return;
+
+            swingPlayer.Stop();
+            if (dataLoader.LoadPreprocessedByIndex(index))
+            {
+                swingPlayer.ReinitializeWithLoader();
+                if (syncReferencePlayback)
+                    SyncReferenceToUserFrame();
+                Debug.Log($"[SwingCtrl] LoadSwingDataByIndex complete: {index} ({dataLoader.CurrentFileName})");
+            }
+        }
+
+        public void LoadReferenceSwingDataByIndex(string indexStr)
+        {
+            if (!int.TryParse(indexStr, out int index) || referenceDataLoader == null || referenceSwingPlayer == null)
+                return;
+
+            referenceSwingPlayer.Stop();
+            if (referenceDataLoader.LoadPreprocessedByIndex(index))
+            {
+                referenceSwingPlayer.ReinitializeWithLoader();
+                if (syncReferencePlayback)
+                    SyncReferenceToUserFrame();
+                referencePoseFileName = referenceDataLoader.CurrentFileName;
+                Debug.Log($"[SwingCtrl] LoadReferenceSwingDataByIndex complete: {index} ({referencePoseFileName})");
+            }
+        }
+
+        public string GetAvailablePreprocessedFilesJson()
+        {
+            return dataLoader != null ? dataLoader.GetAvailablePreprocessedFilesJson() : "[]";
+        }
+
         public void LoadReferenceSwingData(string fileName)
         {
             if (string.IsNullOrEmpty(fileName) || referenceDataLoader == null || referenceSwingPlayer == null)
@@ -305,6 +382,8 @@ namespace GolfSimulation.Core
             if (referenceDataLoader.IsLoaded)
             {
                 referenceSwingPlayer.ReinitializeWithLoader();
+                if (syncReferencePlayback)
+                    SyncReferenceToUserFrame();
                 referencePoseFileName = fileName;
                 Debug.Log($"[SwingCtrl] LoadReferenceSwingData complete: {fileName}");
             }
@@ -326,6 +405,8 @@ namespace GolfSimulation.Core
             if (dataLoader.IsLoaded)
             {
                 swingPlayer.ReinitializeWithLoader();
+                if (syncReferencePlayback)
+                    SyncReferenceToUserFrame();
                 Debug.Log($"[SwingCtrl] LoadSwingData 완료: {fileName}");
             }
             else
@@ -336,6 +417,30 @@ namespace GolfSimulation.Core
 
         // ──────────────────────────────────────────────────────────────────────
         // 상태 조회 (네이티브에서 폴링용)
+
+        private void SyncReferenceToUserFrame()
+        {
+            if (swingPlayer == null || referenceSwingPlayer == null)
+                return;
+
+            int userTotal = Mathf.Max(1, swingPlayer.TotalFrames);
+            int referenceTotal = Mathf.Max(1, referenceSwingPlayer.TotalFrames);
+            float normalized = userTotal > 1
+                ? (float)swingPlayer.CurrentFrameIndex / (userTotal - 1)
+                : 0f;
+            int referenceFrame = Mathf.Clamp(
+                Mathf.RoundToInt(normalized * (referenceTotal - 1)),
+                0,
+                referenceTotal - 1);
+
+            referenceSwingPlayer.SetFrame(referenceFrame);
+            referenceSwingPlayer.PlaybackSpeedValue = swingPlayer.PlaybackSpeedValue;
+
+            if (swingPlayer.IsPlaying)
+                referenceSwingPlayer.Play();
+            else
+                referenceSwingPlayer.Pause();
+        }
 
         public string GetCurrentPhase() => swingPlayer?.CurrentPhase ?? "";
         public int GetCurrentFrame()    => swingPlayer?.CurrentFrameIndex ?? 0;

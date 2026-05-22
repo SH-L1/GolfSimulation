@@ -1,4 +1,5 @@
 using System.IO;
+using System.Collections.Generic;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -10,6 +11,7 @@ namespace GolfSimulation.Data
         [SerializeField] private string fileName = "613_square_cleanswing.json";
         [SerializeField] private bool usePoseCache = false;
         [SerializeField] private bool searchPreprocessedFaceOn = true;
+        [SerializeField] private string preprocessedView = "face_on";
 
         [Header("Cache")]
         [Tooltip("Optional binary pose cache. Disabled by default so StreamingAssets JSON stays authoritative.")]
@@ -18,6 +20,7 @@ namespace GolfSimulation.Data
         public PoseSequence Sequence { get; private set; }
         public bool IsLoaded { get; private set; }
         public int AddressFrameIndex { get; private set; } = -1;
+        public string CurrentFileName => fileName;
 
         private void Awake()
         {
@@ -31,6 +34,47 @@ namespace GolfSimulation.Data
             IsLoaded = false;
             Sequence = null;
             LoadData();
+        }
+
+        public bool LoadPreprocessedByIndex(int index)
+        {
+            List<string> files = GetAvailablePreprocessedFiles();
+            if (index < 0 || index >= files.Count)
+            {
+                Debug.LogWarning($"[PoseDataLoader] Preprocessed index out of range: {index} / {files.Count}");
+                return false;
+            }
+
+            LoadFromFile(files[index]);
+            return IsLoaded;
+        }
+
+        public List<string> GetAvailablePreprocessedFiles()
+        {
+            List<string> results = new List<string>();
+            HashSet<string> seen = new HashSet<string>();
+
+            foreach (string directory in GetPreprocessedSearchDirectories())
+            {
+                if (!Directory.Exists(directory))
+                    continue;
+
+                string[] files = Directory.GetFiles(directory, "*.json");
+                System.Array.Sort(files);
+                foreach (string file in files)
+                {
+                    string name = Path.GetFileName(file);
+                    if (seen.Add(name))
+                        results.Add(name);
+                }
+            }
+
+            return results;
+        }
+
+        public string GetAvailablePreprocessedFilesJson()
+        {
+            return JsonConvert.SerializeObject(GetAvailablePreprocessedFiles());
         }
 
         public void LoadData()
@@ -86,19 +130,30 @@ namespace GolfSimulation.Data
             if (File.Exists(directStreamingPath))
                 return directStreamingPath;
 
-            string nestedStreamingPath = Path.Combine(Application.streamingAssetsPath, "preprocessed", "face_on", requestedFileName);
+            string nestedStreamingPath = Path.Combine(Application.streamingAssetsPath, "preprocessed", preprocessedView, requestedFileName);
             if (File.Exists(nestedStreamingPath))
                 return nestedStreamingPath;
 
             if (searchPreprocessedFaceOn)
             {
                 string projectRootPath = Path.GetFullPath(Path.Combine(
-                    Application.dataPath, "..", "..", "data", "preprocessed", "face_on", requestedFileName));
+                    Application.dataPath, "..", "..", "data", "preprocessed", preprocessedView, requestedFileName));
                 if (File.Exists(projectRootPath))
                     return projectRootPath;
             }
 
             return directStreamingPath;
+        }
+
+        private IEnumerable<string> GetPreprocessedSearchDirectories()
+        {
+            yield return Path.Combine(Application.streamingAssetsPath, "preprocessed", preprocessedView);
+
+            if (!searchPreprocessedFaceOn)
+                yield break;
+
+            yield return Path.GetFullPath(Path.Combine(
+                Application.dataPath, "..", "..", "data", "preprocessed", preprocessedView));
         }
 
         private void ResolveAddressFrame()

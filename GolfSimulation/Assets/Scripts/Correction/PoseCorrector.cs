@@ -28,6 +28,17 @@ namespace GolfSimulation.Correction
         [SerializeField][Range(0.02f, 0.45f)] private float minArmForwardRatio = 0.22f;
         [SerializeField][Range(0f, 1f)] private float faceRepairBlend = 0.9f;
 
+        [Header("Skeleton Regularization")]
+        [SerializeField] private bool enableBoneLengthRegularization = true;
+        [SerializeField][Range(0f, 0.6f)] private float boneLengthToleranceRatio = 0.18f;
+        [SerializeField][Range(0f, 1f)] private float boneLengthRepairBlend = 0.75f;
+        [SerializeField] private bool enableJointAngleRegularization = true;
+        [SerializeField][Range(5f, 70f)] private float minElbowAngle = 10f;
+        [SerializeField][Range(120f, 179f)] private float maxElbowAngle = 179f;
+        [SerializeField][Range(5f, 60f)] private float minKneeAngle = 6f;
+        [SerializeField][Range(130f, 179f)] private float maxKneeAngle = 179f;
+        [SerializeField][Range(0f, 1f)] private float jointAngleRepairBlend = 1f;
+
         [Header("Debug")]
         [SerializeField] private bool showStats = false;
 
@@ -44,6 +55,32 @@ namespace GolfSimulation.Correction
 
         private static readonly string[] BackswingPhases = { "mid_backswing", "top" };
         private static readonly string[] FinishPhases = { "mid_follow_through", "finish" };
+
+        private readonly struct BoneSegment
+        {
+            public readonly string Parent;
+            public readonly string Child;
+
+            public BoneSegment(string parent, string child)
+            {
+                Parent = parent;
+                Child = child;
+            }
+        }
+
+        private static readonly BoneSegment[] RegularizedSegments =
+        {
+            new BoneSegment("left_shoulder", "left_elbow"),
+            new BoneSegment("left_elbow", "left_wrist"),
+            new BoneSegment("right_shoulder", "right_elbow"),
+            new BoneSegment("right_elbow", "right_wrist"),
+            new BoneSegment("left_hip", "left_knee"),
+            new BoneSegment("left_knee", "left_ankle"),
+            new BoneSegment("right_hip", "right_knee"),
+            new BoneSegment("right_knee", "right_ankle"),
+            new BoneSegment("left_shoulder", "left_hip"),
+            new BoneSegment("right_shoulder", "right_hip")
+        };
 
         public void PreprocessSequence(PoseSequence sequence)
         {
@@ -63,6 +100,8 @@ namespace GolfSimulation.Correction
             int jumpCount = 0;
             int depthFixCount = 0;
             int anatomicalFixCount = 0;
+            int skeletonFixCount = 0;
+            int jointAngleFixCount = 0;
 
             for (int i = 0; i < frames.Count; i++)
             {
@@ -94,12 +133,212 @@ namespace GolfSimulation.Correction
             if (enableAnatomicalFrameRepair)
                 ApplyAnatomicalFrameRepair(sequence, ref anatomicalFixCount);
 
+            if (enableBoneLengthRegularization)
+                ApplyBoneLengthRegularization(sequence, ref skeletonFixCount);
+
+            if (enableJointAngleRegularization)
+                ApplyJointAngleRegularization(sequence, ref jointAngleFixCount);
+
+            if (enableAnatomicalFrameRepair && (enableBoneLengthRegularization || enableJointAngleRegularization))
+                ApplyAnatomicalFrameRepair(sequence, ref anatomicalFixCount);
+
+            if (enableBoneLengthRegularization && enableAnatomicalFrameRepair)
+                ApplyBoneLengthRegularization(sequence, ref skeletonFixCount);
+
+            if (enableJointAngleRegularization && enableAnatomicalFrameRepair)
+                ApplyJointAngleRegularization(sequence, ref jointAngleFixCount);
+
+            if (enableAnatomicalFrameRepair)
+                ApplyFinalArmForwardChainConstraint(sequence, ref anatomicalFixCount);
+
             if (showStats)
             {
                 Debug.Log("[PoseCorrector] ========== Preprocess complete ==========");
                 Debug.Log($"[PoseCorrector] Video: {sequence.video} | View: {viewType} | Frames: {frames.Count}");
-                Debug.Log($"[PoseCorrector] Hard clamps: {hardClampCount} | Jump repairs: {jumpCount} | Depth shifts: {depthFixCount} | Anatomical repairs: {anatomicalFixCount}");
+                Debug.Log($"[PoseCorrector] Hard clamps: {hardClampCount} | Jump repairs: {jumpCount} | Depth shifts: {depthFixCount} | Anatomical repairs: {anatomicalFixCount} | Skeleton repairs: {skeletonFixCount} | Joint angle repairs: {jointAngleFixCount}");
             }
+        }
+
+        private void ApplyBoneLengthRegularization(PoseSequence sequence, ref int repairCount)
+        {
+            if (sequence.frames == null || sequence.frames.Count == 0)
+                return;
+
+            Dictionary<string, float> targetLengths = EstimateTargetBoneLengths(sequence);
+            if (targetLengths.Count == 0)
+                return;
+
+            foreach (PoseFrame frame in sequence.frames)
+            {
+                Dictionary<string, Landmark> map = BuildLandmarkMap(frame);
+                if (map == null) continue;
+
+                foreach (BoneSegment segment in RegularizedSegments)
+                {
+                    string key = GetSegmentKey(segment);
+                    if (!targetLengths.TryGetValue(key, out float targetLength) || targetLength <= 0.0001f)
+                        continue;
+
+                    RepairSegmentLength(map, segment.Parent, segment.Child, targetLength, ref repairCount);
+                }
+            }
+        }
+
+        private Dictionary<string, float> EstimateTargetBoneLengths(PoseSequence sequence)
+        {
+            Dictionary<string, List<float>> samples = new Dictionary<string, List<float>>();
+            foreach (BoneSegment segment in RegularizedSegments)
+                samples[GetSegmentKey(segment)] = new List<float>();
+
+            foreach (PoseFrame frame in sequence.frames)
+            {
+                Dictionary<string, Landmark> map = BuildLandmarkMap(frame);
+                if (map == null) continue;
+
+                foreach (BoneSegment segment in RegularizedSegments)
+                {
+                    if (!map.TryGetValue(segment.Parent, out Landmark parent) ||
+                        !map.TryGetValue(segment.Child, out Landmark child))
+                    {
+                        continue;
+                    }
+
+                    float visibility = Mathf.Min(parent.visibility, child.visibility);
+                    float length = Vector3.Distance(ToVector(parent), ToVector(child));
+                    if (visibility >= stableVisibilityThreshold && length > 0.005f && length < hardClampThreshold)
+                        samples[GetSegmentKey(segment)].Add(length);
+                }
+            }
+
+            Dictionary<string, float> targets = new Dictionary<string, float>();
+            foreach (KeyValuePair<string, List<float>> entry in samples)
+            {
+                if (entry.Value.Count == 0)
+                    continue;
+
+                entry.Value.Sort();
+                int mid = entry.Value.Count / 2;
+                float median = (entry.Value.Count % 2 == 0)
+                    ? (entry.Value[mid - 1] + entry.Value[mid]) * 0.5f
+                    : entry.Value[mid];
+                targets[entry.Key] = median;
+            }
+
+            return targets;
+        }
+
+        private void RepairSegmentLength(
+            Dictionary<string, Landmark> map,
+            string parentKey,
+            string childKey,
+            float targetLength,
+            ref int repairCount)
+        {
+            if (!map.TryGetValue(parentKey, out Landmark parentLm) ||
+                !map.TryGetValue(childKey, out Landmark childLm))
+            {
+                return;
+            }
+
+            Vector3 parent = ToVector(parentLm);
+            Vector3 child = ToVector(childLm);
+            Vector3 offset = child - parent;
+            float currentLength = offset.magnitude;
+            if (currentLength <= 0.0001f)
+                return;
+
+            float allowedDelta = Mathf.Max(0.002f, targetLength * boneLengthToleranceRatio);
+            if (Mathf.Abs(currentLength - targetLength) <= allowedDelta)
+                return;
+
+            Vector3 targetChild = parent + offset / currentLength * targetLength;
+            FromVector(childLm, Vector3.Lerp(child, targetChild, boneLengthRepairBlend));
+            childLm.visibility = Mathf.Max(childLm.visibility, 0.65f);
+            repairCount++;
+        }
+
+        private static string GetSegmentKey(BoneSegment segment) => segment.Parent + ">" + segment.Child;
+
+        private void ApplyJointAngleRegularization(PoseSequence sequence, ref int repairCount)
+        {
+            Vector3 lastForward = Vector3.forward;
+            bool hasForward = false;
+
+            foreach (PoseFrame frame in sequence.frames)
+            {
+                Dictionary<string, Landmark> map = BuildLandmarkMap(frame);
+                if (map == null) continue;
+
+                Vector3 bendFallback = Vector3.forward;
+                if (TryBuildBodyFrame(map, ref lastForward, ref hasForward,
+                        out _, out _, out _, out Vector3 forward, out _))
+                {
+                    bendFallback = forward;
+                }
+
+                RepairJointAngle(map, "left_shoulder", "left_elbow", "left_wrist",
+                    minElbowAngle, maxElbowAngle, bendFallback, ref repairCount);
+                RepairJointAngle(map, "right_shoulder", "right_elbow", "right_wrist",
+                    minElbowAngle, maxElbowAngle, bendFallback, ref repairCount);
+                RepairJointAngle(map, "left_hip", "left_knee", "left_ankle",
+                    minKneeAngle, maxKneeAngle, bendFallback, ref repairCount);
+                RepairJointAngle(map, "right_hip", "right_knee", "right_ankle",
+                    minKneeAngle, maxKneeAngle, bendFallback, ref repairCount);
+            }
+        }
+
+        private void RepairJointAngle(
+            Dictionary<string, Landmark> map,
+            string parentKey,
+            string jointKey,
+            string childKey,
+            float minAngle,
+            float maxAngle,
+            Vector3 bendFallback,
+            ref int repairCount)
+        {
+            if (!map.TryGetValue(parentKey, out Landmark parentLm) ||
+                !map.TryGetValue(jointKey, out Landmark jointLm) ||
+                !map.TryGetValue(childKey, out Landmark childLm))
+            {
+                return;
+            }
+
+            Vector3 parent = ToVector(parentLm);
+            Vector3 joint = ToVector(jointLm);
+            Vector3 child = ToVector(childLm);
+            Vector3 toParent = parent - joint;
+            Vector3 toChild = child - joint;
+            float childLength = toChild.magnitude;
+            if (toParent.sqrMagnitude < 0.0001f || childLength < 0.0001f)
+                return;
+
+            Vector3 parentDir = toParent.normalized;
+            Vector3 childDir = toChild / childLength;
+            float currentAngle = Vector3.Angle(parentDir, childDir);
+            float targetAngle = Mathf.Clamp(currentAngle, minAngle, maxAngle);
+            if (Mathf.Abs(targetAngle - currentAngle) < 0.5f)
+                return;
+
+            Vector3 bendAxis = Vector3.Cross(parentDir, childDir);
+            if (bendAxis.sqrMagnitude < 0.0001f)
+                bendAxis = Vector3.Cross(parentDir, bendFallback);
+            if (bendAxis.sqrMagnitude < 0.0001f)
+                bendAxis = Vector3.Cross(parentDir, Vector3.up);
+            if (bendAxis.sqrMagnitude < 0.0001f)
+                bendAxis = Vector3.right;
+
+            bendAxis.Normalize();
+            Vector3 candidateA = Quaternion.AngleAxis(targetAngle, bendAxis) * parentDir;
+            Vector3 candidateB = Quaternion.AngleAxis(-targetAngle, bendAxis) * parentDir;
+            Vector3 targetDir = Vector3.Dot(candidateA, childDir) >= Vector3.Dot(candidateB, childDir)
+                ? candidateA.normalized
+                : candidateB.normalized;
+            Vector3 targetChild = joint + targetDir * childLength;
+
+            FromVector(childLm, Vector3.Lerp(child, targetChild, jointAngleRepairBlend));
+            childLm.visibility = Mathf.Max(childLm.visibility, 0.65f);
+            repairCount++;
         }
 
         private void ApplyAnatomicalFrameRepair(PoseSequence sequence, ref int repairCount)
@@ -265,6 +504,60 @@ namespace GolfSimulation.Correction
 
             joint += forward * (minForward - currentForward) * zStabilizationBlend;
             FromVector(jointLm, joint);
+            repairCount++;
+        }
+
+        private void ApplyFinalArmForwardChainConstraint(PoseSequence sequence, ref int repairCount)
+        {
+            Vector3 lastForward = Vector3.forward;
+            bool hasForward = false;
+
+            foreach (PoseFrame frame in sequence.frames)
+            {
+                Dictionary<string, Landmark> map = BuildLandmarkMap(frame);
+                if (map == null) continue;
+                if (!TryBuildBodyFrame(map, ref lastForward, ref hasForward,
+                        out _, out _, out _, out Vector3 forward, out float bodyWidth))
+                {
+                    continue;
+                }
+
+                ShiftArmChainInFront(map, "left_shoulder", "left_elbow", "left_wrist", forward, bodyWidth, ref repairCount);
+                ShiftArmChainInFront(map, "right_shoulder", "right_elbow", "right_wrist", forward, bodyWidth, ref repairCount);
+            }
+        }
+
+        private void ShiftArmChainInFront(
+            Dictionary<string, Landmark> map,
+            string shoulderKey,
+            string elbowKey,
+            string wristKey,
+            Vector3 forward,
+            float bodyWidth,
+            ref int repairCount)
+        {
+            if (!map.TryGetValue(shoulderKey, out Landmark shoulderLm) ||
+                !map.TryGetValue(elbowKey, out Landmark elbowLm) ||
+                !map.TryGetValue(wristKey, out Landmark wristLm))
+            {
+                return;
+            }
+
+            Vector3 shoulder = ToVector(shoulderLm);
+            Vector3 elbow = ToVector(elbowLm);
+            Vector3 wrist = ToVector(wristLm);
+            float minForward = bodyWidth * minArmForwardRatio;
+            float elbowForward = Vector3.Dot(elbow - shoulder, forward);
+            float wristForward = Vector3.Dot(wrist - shoulder, forward);
+            float requiredShift = minForward - Mathf.Min(elbowForward, wristForward);
+            if (requiredShift <= 0f)
+                return;
+
+            Vector3 shift = forward * requiredShift;
+            FromVector(elbowLm, elbow + shift);
+            FromVector(wristLm, wrist + shift);
+            elbowLm.visibility = Mathf.Max(elbowLm.visibility, 0.65f);
+            wristLm.visibility = Mathf.Max(wristLm.visibility, 0.65f);
             repairCount++;
         }
 

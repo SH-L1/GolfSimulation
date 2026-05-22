@@ -458,6 +458,7 @@ MonoBehaviour:
   createReferenceOverlay: 1
   referencePoseFileName: 613_square_cleanswing.json
   referenceOverlayOffset: {x: 0, y: 0, z: 0}
+  syncReferencePlayback: 1
   userAvatarTint: {r: 1, g: 1, b: 1, a: 1}
   referenceAvatarTint: {r: 0.25, g: 0.55, b: 1, a: 0.42}
   showDebugInfo: 0
@@ -692,6 +693,7 @@ MonoBehaviour:
   fileName: 613_square_cleanswing.json
   usePoseCache: 0
   searchPreprocessedFaceOn: 1
+  preprocessedView: face_on
   poseCache: {fileID: 0}
 --- !u!114 &572169727
 MonoBehaviour:
@@ -736,6 +738,15 @@ MonoBehaviour:
   minLegSideRatio: 0.24
   minArmForwardRatio: 0.22
   faceRepairBlend: 0.9
+  enableBoneLengthRegularization: 1
+  boneLengthToleranceRatio: 0.18
+  boneLengthRepairBlend: 0.75
+  enableJointAngleRegularization: 1
+  minElbowAngle: 10
+  maxElbowAngle: 179
+  minKneeAngle: 6
+  maxKneeAngle: 179
+  jointAngleRepairBlend: 1
   showStats: 0
 --- !u!1 &832575517
 GameObject:
