@@ -1,0 +1,29 @@
+{
+  "video": "25af9af8-ba6b-476c-be13-b1fd5f0bc9f3",
+  "viewtype": "faceon",
+  "fps": 29.97,
+  "totalframes": 114,
+  "eventmodel": "swingnet",
+  "events": {
+    "address": {
+      "frame": 0,
+      "confidence": 0.125
+    }
+  },
+  "event_names": [
+    "address",
+    "toe_up",
+    "mid_backswing",
+    "top",
+    "mid_downswing",
+    "impact",
+    "mid_follow_through",
+    "finish"
+  ],
+  "load_report": {
+    "loaded": false,
+    "reason": "checkpoint_not_found",
+    "message": "D:\\jongP\\GolfSimulation\\backend\\app\\module1\\models\\swingnet_1800.pth"
+  },
+  "step": "step3_events"
+}

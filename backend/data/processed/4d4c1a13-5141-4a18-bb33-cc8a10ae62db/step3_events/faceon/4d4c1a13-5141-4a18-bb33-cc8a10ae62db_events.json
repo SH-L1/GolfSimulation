@@ -1,0 +1,29 @@
+{
+  "video": "4d4c1a13-5141-4a18-bb33-cc8a10ae62db",
+  "viewtype": "faceon",
+  "fps": 29.97,
+  "totalframes": 114,
+  "eventmodel": "swingnet",
+  "events": {
+    "address": {
+      "frame": 0,
+      "confidence": 0.125
+    }
+  },
+  "event_names": [
+    "address",
+    "toe_up",
+    "mid_backswing",
+    "top",
+    "mid_downswing",
+    "impact",
+    "mid_follow_through",
+    "finish"
+  ],
+  "load_report": {
+    "loaded": false,
+    "reason": "exception:CalledProcessError",
+    "message": "Command '['git', 'clone', 'https://github.com/wmcnally/golfdb.git', 'external\\\\golfdb']' returned non-zero exit status 128."
+  },
+  "step": "step3_events"
+}

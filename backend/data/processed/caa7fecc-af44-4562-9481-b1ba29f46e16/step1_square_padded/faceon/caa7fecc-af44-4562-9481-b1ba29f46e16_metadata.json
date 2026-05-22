@@ -1,0 +1,31 @@
+{
+  "video": "caa7fecc-af44-4562-9481-b1ba29f46e16",
+  "video_path": "D:\\jongP\\GolfSimulation\\backend\\tmp\\uploads\\caa7fecc-af44-4562-9481-b1ba29f46e16.mp4",
+  "view_type": "faceon",
+  "target_size": 1024,
+  "fps": 29.97,
+  "total_frames": 114,
+  "processed_frames": 114,
+  "original_size": {
+    "width": 1024,
+    "height": 1024
+  },
+  "metadata": {
+    "original_size": {
+      "width": 1024,
+      "height": 1024
+    },
+    "resized_size": {
+      "width": 1024,
+      "height": 1024
+    },
+    "offset": {
+      "x": 0,
+      "y": 0
+    },
+    "target_size": 1024,
+    "is_square": true,
+    "aspect_ratio": 1.0,
+    "padding_added": false
+  }
+}
