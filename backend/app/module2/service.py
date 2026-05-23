@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-from uuid import uuid4
 from typing import AsyncGenerator
+from uuid import uuid4
 
 from ..repositories.analysis_repository import AnalysisRepository
 from ..repositories.chat_repository import ChatRepository
 from ..services.module2.context_manager import ContextManager
+from ..services.module2.ollama_client import OllamaClient
 from ..services.module2.priority_selector import PrioritySelector
 from ..services.module2.prompt_builder import PromptBuilder
-from ..services.module2.ollama_client import OllamaClient
 
 
 class Module2Service:
@@ -38,8 +38,8 @@ class Module2Service:
         current_session_id: str | None,
         experience_level: str,
     ) -> AsyncGenerator[str, None]:
-        chat_session_id = session_id or str(uuid4())
-        swing_session_id = current_session_id
+        swing_session_id = session_id
+        chat_session_id = current_session_id or str(uuid4())
 
         try:
             context = await self.context_manager.load_context(

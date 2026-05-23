@@ -2,24 +2,33 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
+
+from app.db.mongodb import get_db
 
 
 class ChatRepository:
-    _store: dict[str, dict[str, Any]] = {}
+    def __init__(self) -> None:
+        self.collection = "chatsessions"
 
     async def get_chat_session(
         self,
         user_id: str | None,
         chat_session_id: str | None,
     ) -> dict[str, Any]:
-        if not chat_session_id:
-            return self._empty_session(user_id=user_id, chat_session_id=None)
+        db = get_db()
 
-        session = self._store.get(chat_session_id)
-        if session is None:
-            return self._empty_session(user_id=user_id, chat_session_id=chat_session_id)
+        if chat_session_id:
+            session = await db[self.collection].find_one(
+                {"chatSessionId": chat_session_id}
+            )
+            if session:
+                return session
 
-        return session
+        return self._empty_session(
+            user_id=user_id,
+            chat_session_id=chat_session_id or str(uuid4()),
+        )
 
     async def save_chat_session(
         self,
@@ -27,7 +36,11 @@ class ChatRepository:
         chat_session_id: str,
         payload: dict[str, Any],
     ) -> None:
-        existing = self._store.get(chat_session_id)
+        db = get_db()
+
+        existing = await db[self.collection].find_one(
+            {"chatSessionId": chat_session_id}
+        )
 
         created_at = (
             existing.get("createdAt")
@@ -45,16 +58,23 @@ class ChatRepository:
             "messages": payload.get("messages", []),
             "contextLinks": payload.get("contextLinks", []),
             "createdAt": created_at,
+            "updatedAt": self._now_iso(),
         }
 
-        self._store[chat_session_id] = normalized
+        await db[self.collection].update_one(
+            {"chatSessionId": chat_session_id},
+            {"$set": normalized},
+            upsert=True,
+        )
 
     async def get_chat_history(
         self,
         user_id: str | None,
         session_id: str,
     ) -> dict[str, Any]:
-        session = self._store.get(session_id)
+        db = get_db()
+
+        session = await db[self.collection].find_one({"chatSessionId": session_id})
         if session is None:
             return {
                 "chatSessionId": session_id,
@@ -75,13 +95,15 @@ class ChatRepository:
         user_id: str | None,
         session_id: str,
     ) -> None:
-        self._store.pop(session_id, None)
+        db = get_db()
+        await db[self.collection].delete_one({"chatSessionId": session_id})
 
     def _empty_session(
         self,
         user_id: str | None,
-        chat_session_id: str | None,
+        chat_session_id: str,
     ) -> dict[str, Any]:
+        now = self._now_iso()
         return {
             "chatSessionId": chat_session_id,
             "uid": user_id,
@@ -90,7 +112,8 @@ class ChatRepository:
             "summaryUpdatedAt": None,
             "messages": [],
             "contextLinks": [],
-            "createdAt": None,
+            "createdAt": now,
+            "updatedAt": now,
         }
 
     def _now_iso(self) -> str:

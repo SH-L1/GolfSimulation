@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -11,15 +11,14 @@ class AnalyzeResponse(BaseModel):
 
 class AnalysisStatusResponse(BaseModel):
     status: Literal["queued", "processing", "done", "error"]
-    sessionid: str | None = None
-    message: str | None = None
+    sessionid: Optional[str] = None
+    message: Optional[str] = None
 
 
 class PriorityCoachingItem(BaseModel):
     metric_id: str
     score: float
     phase: str
-
 
 class ScoreBundle(BaseModel):
     metrics: dict[str, float] = Field(default_factory=dict)
@@ -32,7 +31,7 @@ class SessionListItem(BaseModel):
     status: Literal["queued", "processing", "done", "error"]
     viewtype: str
     clubtype: str
-    inputfilename: str | None = None
+    inputfilename: Optional[str] = None
     analyzedat: datetime | None = None
     createdat: datetime
 
@@ -49,12 +48,12 @@ class AnalysisResultResponse(BaseModel):
     status: Literal["queued", "processing", "done", "error"]
     viewtype: str
     clubtype: str
-    inputfilename: str | None = None
+    inputfilename: Optional[str] = None
     analyzedat: datetime | None = None
     events: dict[str, int] = Field(default_factory=dict)
     metrics: dict[str, float] = Field(default_factory=dict)
     scores: ScoreBundle = Field(default_factory=ScoreBundle)
     priority_coaching: list[PriorityCoachingItem] = Field(default_factory=list)
-    charturl: str | None = None
-    message: str | None = None
+    charturl: Optional[str] = None
+    message: Optional[str] = None
     p1_raw_metrics: dict[str, float] = Field(default_factory=dict)

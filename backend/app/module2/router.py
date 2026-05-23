@@ -4,12 +4,10 @@ from fastapi.responses import StreamingResponse
 from .schemas import ChatStreamRequest
 from .service import Module2Service, get_module2_service
 
-
 router = APIRouter()
 
 module2_service: Module2Service = get_module2_service()
 
-# backward-compatible patch points for tests
 chat_repository = module2_service.chat_repository
 analysis_repository = module2_service.analysis_repository
 context_manager = module2_service.context_manager

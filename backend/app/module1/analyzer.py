@@ -38,16 +38,6 @@ class Module1Analyzer:
         events_payload = self._load_json(events_json_path)
         final_payload = self._load_json(final_json_path)
 
-        # 세션별 P1 원시 지표 계산 (프로 통계 없이)
-        p1_raw_metrics: dict[str, float] = {}
-        try:
-            if final_json_path:
-                swing = load_swing_json(final_json_path)
-                p1_raw_metrics = compute_all_metrics(swing) or {}
-        except Exception as e:
-            print(f"[Module1Analyzer] P1 metric compute failed: {e}")
-            p1_raw_metrics = {}
-        
         p1_raw_metrics: dict[str, float] = {}
         try:
             if final_json_path:
@@ -57,6 +47,7 @@ class Module1Analyzer:
         except Exception as e:
             print(f"[Module1Analyzer] P1 metric compute failed: {e}")
             p1_raw_metrics = {}
+
         events = self._normalize_events(
             final_payload.get("events") or events_payload.get("events") or {}
         )
@@ -70,6 +61,7 @@ class Module1Analyzer:
             poses=poses,
             events=self._events_to_list(events),
             reference=reference,
+            raw_metrics=p1_raw_metrics,
         )
 
         result = self._build_result_document(
@@ -114,7 +106,7 @@ class Module1Analyzer:
             if frame.get("frame") is not None
         }
 
-        poses = []
+        poses: list[dict[str, Any]] = []
         for idx, frame in enumerate(final_frames):
             frameorig = int(frame.get("frameorig", idx))
             raw_pose_frame = original_pose_frames.get(frameorig, {})
@@ -187,7 +179,7 @@ class Module1Analyzer:
         metrics: list[dict[str, Any]] | dict[str, Any],
     ) -> dict[str, float]:
         if isinstance(metrics, dict):
-            out = {}
+            out: dict[str, float] = {}
             for key, value in metrics.items():
                 if isinstance(value, dict):
                     metric_value = value.get("value")
@@ -204,7 +196,7 @@ class Module1Analyzer:
                     continue
             return out
 
-        out = {}
+        out: dict[str, float] = {}
         for item in metrics or []:
             if not isinstance(item, dict):
                 continue
@@ -228,42 +220,6 @@ class Module1Analyzer:
 
         return out
 
-    def _build_priority_coaching(
-        self,
-        score_result: dict[str, Any],
-    ) -> list[dict[str, Any]]:
-        recommendations = score_result.get("recommendations", [])
-        metric_items = score_result.get("metrics", [])
-
-        metric_score_map = {}
-        for item in metric_items:
-            if not isinstance(item, dict):
-                continue
-            key = item.get("metricid") or item.get("metric_id")
-            score = item.get("score")
-            if key is None or score is None:
-                continue
-            try:
-                metric_score_map[str(key)] = float(score)
-            except (TypeError, ValueError):
-                continue
-
-        priority = []
-        for item in recommendations:
-            metric_id = item.get("metricid") or item.get("metric_id")
-            if not metric_id:
-                continue
-
-            priority.append(
-                {
-                    "metric_id": str(metric_id),
-                    "score": float(metric_score_map.get(str(metric_id), 0.0)),
-                    "phase": "impact",
-                }
-            )
-
-        return priority
-
     def _build_result_document(
         self,
         score_result: dict[str, Any],
@@ -274,33 +230,42 @@ class Module1Analyzer:
         viewtype: str,
         p1_raw_metrics: dict[str, float] | None = None,
     ) -> dict[str, Any]:
-        phase_scores = score_result.get("phasescores", {})
-        overall_score = score_result.get("overallscore")
-        metric_items = score_result.get("metrics", [])
+        metrics_map = self._normalize_metric_map(score_result.get("metrics") or {})
+        scores_raw = score_result.get("scores") or {}
+
+        prioritycoaching = []
+        for item in (score_result.get("prioritycoaching") or []):
+            if not isinstance(item, dict):
+                continue
+
+            metricid = item.get("metricid") or item.get("metric_id")
+            score = item.get("score")
+            phase = item.get("phase")
+
+            if metricid is None or score is None or phase is None:
+                continue
+
+            try:
+                prioritycoaching.append(
+                    {
+                        "metricid": str(metricid),
+                        "metric_id": str(metricid),
+                        "score": float(score),
+                        "phase": str(phase),
+                    }
+                )
+            except (TypeError, ValueError):
+                continue
 
         return {
             "referenceversion": reference.get("referenceversion", "v1"),
             "video_id": final_payload.get("video"),
             "view_type": final_payload.get("viewtype", viewtype),
             "events": events,
-            "metrics": self._normalize_metric_map(metric_items),
-            "scores": {
-                "metrics": {
-                    str(item.get("metricid") or item.get("metric_id")): float(
-                        item.get("score", 0.0)
-                    )
-                    for item in metric_items
-                    if isinstance(item, dict)
-                    and (item.get("metricid") or item.get("metric_id"))
-                },
-                "phases": {
-                    str(k): float(v)
-                    for k, v in phase_scores.items()
-                },
-                "overall": float(overall_score) if overall_score is not None else None,
-            },
-            "priority_coaching": self._build_priority_coaching(score_result),
-            "charturl": None,
+            "metrics": score_result.get("metrics", {}),
+            "scores": score_result.get("scores", {}),
+            "prioritycoaching": score_result.get("prioritycoaching", []),
+            "priority_coaching": score_result.get("prioritycoaching", []),
             "summary": score_result.get("summary"),
             "final_json_path": pipeline_output.get("final_json_path"),
             "session_dir": pipeline_output.get("session_dir"),

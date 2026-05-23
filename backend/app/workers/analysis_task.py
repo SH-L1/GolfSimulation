@@ -73,6 +73,7 @@ def _normalize_priority_coaching(value):
         try:
             normalized.append(
                 {
+                    "metricid": str(metric_id),
                     "metric_id": str(metric_id),
                     "score": float(score),
                     "phase": str(phase),
@@ -82,6 +83,33 @@ def _normalize_priority_coaching(value):
             continue
 
     return normalized
+
+
+def _normalize_metrics_payload(value):
+    if isinstance(value, dict):
+        normalized = {}
+        for key, raw in value.items():
+            if isinstance(raw, dict):
+                normalized[str(key)] = raw
+            else:
+                try:
+                    normalized[str(key)] = float(raw)
+                except (TypeError, ValueError):
+                    normalized[str(key)] = raw
+        return normalized
+
+    if isinstance(value, list):
+        normalized = {}
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("metric_id") or item.get("metricid") or item.get("name")
+            if key is None:
+                continue
+            normalized[str(key)] = item
+        return normalized
+
+    return {}
 
 
 @celery_app.task(name="app.workers.analysis_task.run_analysis")
@@ -197,30 +225,3 @@ def run_analysis(
 
     finally:
         client.close()
-
-
-def _normalize_metrics_payload(value):
-    if isinstance(value, dict):
-        normalized = {}
-        for key, raw in value.items():
-            if isinstance(raw, dict):
-                normalized[str(key)] = raw
-            else:
-                try:
-                    normalized[str(key)] = float(raw)
-                except (TypeError, ValueError):
-                    normalized[str(key)] = raw
-        return normalized
-
-    if isinstance(value, list):
-        normalized = {}
-        for item in value:
-            if not isinstance(item, dict):
-                continue
-            key = item.get("metric_id") or item.get("metricid") or item.get("name")
-            if key is None:
-                continue
-            normalized[str(key)] = item
-        return normalized
-
-    return {}
