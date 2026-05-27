@@ -14,3 +14,7 @@
 *.csproj
 *.sln
 *.suo
+node_modules/
+.gradle/
+android/.gradle/
+android/local.properties
