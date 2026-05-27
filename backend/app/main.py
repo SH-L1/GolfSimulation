@@ -12,8 +12,10 @@ from app.module3.router import router as module3_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_mongodb()
-    yield
-    await close_mongodb()
+    try:
+        yield
+    finally:
+        await close_mongodb()
 
 
 app = FastAPI(

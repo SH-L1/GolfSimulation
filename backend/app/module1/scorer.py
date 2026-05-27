@@ -1,47 +1,109 @@
-class SwingScorer:
-    def score(self, poses: list[dict], events: list[dict], reference: dict) -> dict:
-        frame_count = len(poses)
-        event_count = len(events)
+from __future__ import annotations
 
-        overall_score = min(100.0, 40.0 + frame_count * 2.0 + event_count * 8.0)
+from typing import Any
+
+from .reference_stats import REFERENCE_STATS, PHASE_WEIGHTS, METRIC_PHASE
+
+
+def score_metric(metric_id: str, user_value: float, stats: dict = None) -> float:
+    if stats is None:
+        stats = REFERENCE_STATS
+    ref = stats[metric_id]
+    deviation = abs(user_value - ref["mean"]) / ref["std"]
+    return max(0.0, 100.0 - deviation * 20.0)
+
+
+def compute_scores(metrics: dict, stats: dict = None) -> dict:
+    if stats is None:
+        stats = REFERENCE_STATS
+
+    metric_scores = {}
+    for metric_id, value in metrics.items():
+        if metric_id in stats and value is not None:
+            metric_scores[metric_id] = round(score_metric(metric_id, value, stats), 1)
+
+    phase_buckets: dict[str, list] = {p: [] for p in PHASE_WEIGHTS}
+    for metric_id, score in metric_scores.items():
+        phase = METRIC_PHASE.get(metric_id)
+        if phase:
+            phase_buckets[phase].append(score)
+
+    phase_scores = {}
+    for phase, scores in phase_buckets.items():
+        if scores:
+            phase_scores[phase] = round(sum(scores) / len(scores), 1)
+
+    total_weight = sum(PHASE_WEIGHTS[p] for p in phase_scores)
+    if total_weight > 0:
+        overall = sum(
+            phase_scores[p] * PHASE_WEIGHTS[p] for p in phase_scores
+        ) / total_weight
+    else:
+        overall = 0.0
+
+    return {
+        "metrics": metric_scores,
+        "phases": phase_scores,
+        "overall": round(overall, 1),
+    }
+
+
+def select_priority_coaching(scores: dict, top_n: int = 2) -> list[dict]:
+    metric_scores = scores.get("metrics", {})
+    ranked = sorted(metric_scores.items(), key=lambda kv: kv[1])
+
+    result = []
+    for metric_id, score in ranked[:top_n]:
+        result.append(
+            {
+                "metric_id": metric_id,
+                "score": float(score),
+                "phase": METRIC_PHASE.get(metric_id, "unknown"),
+            }
+        )
+    return result
+
+
+class SwingScorer:
+    def score(
+        self,
+        poses: list[dict],
+        events: list[dict],
+        reference: dict,
+        raw_metrics: dict[str, float] | None = None,
+    ) -> dict[str, Any]:
+        raw_metrics = dict(raw_metrics or {})
+        scores = compute_scores(raw_metrics)
+        priority = select_priority_coaching(scores, top_n=2)
 
         return {
             "referenceversion": reference.get("referenceversion", "v1"),
-            "overallscore": round(overall_score, 2),
+            "overallscore": float(scores.get("overall") or 0.0),
             "phasescores": {
-                "address": 72.0 if frame_count > 0 else 0.0,
-                "top": 64.0 if frame_count > 3 else 0.0,
-                "impact": 58.0 if event_count > 2 else 0.0,
-                "finish": 67.0 if frame_count > 5 else 0.0,
+                str(k): float(v) for k, v in (scores.get("phases") or {}).items()
             },
-            "metrics": [
-                {
-                    "metricid": "FRAMECOUNT",
-                    "uservalue": float(frame_count),
-                    "promean": 12.0,
-                    "prostd": 2.0,
-                    "idealrange": [10.0, 14.0],
-                    "unit": "frames",
-                    "score": min(100.0, frame_count * 8.0),
+            "metrics": {
+                str(k): float(v) for k, v in raw_metrics.items() if v is not None
+            },
+            "scores": {
+                "metrics": {
+                    str(k): float(v)
+                    for k, v in (scores.get("metrics") or {}).items()
                 },
-                {
-                    "metricid": "EVENTCOUNT",
-                    "uservalue": float(event_count),
-                    "promean": 4.0,
-                    "prostd": 0.0,
-                    "idealrange": [4.0, 4.0],
-                    "unit": "events",
-                    "score": min(100.0, event_count * 25.0),
+                "phases": {
+                    str(k): float(v)
+                    for k, v in (scores.get("phases") or {}).items()
                 },
-            ],
-            "recommendations": [
+                "overall": float(scores.get("overall") or 0.0),
+            },
+            "prioritycoaching": [
                 {
-                    "metricid": "FRAMECOUNT",
-                    "title": "분석 파이프라인 연결 완료",
-                    "body": "현재는 bootstrap 스코어러입니다. 실제 포즈 및 이벤트 결과를 연결하면 분석 정확도를 높일 수 있습니다.",
-                    "drilltitle": "Pose extraction integration",
-                    "drillpreviewurl": None,
+                    "metricid": str(item["metric_id"]),
+                    "metric_id": str(item["metric_id"]),
+                    "score": float(item["score"]),
+                    "phase": str(item["phase"]),
                 }
+                for item in priority
             ],
-            "summary": "Bootstrap scoring completed.",
+            "summary": "Scoring completed.",
         }
