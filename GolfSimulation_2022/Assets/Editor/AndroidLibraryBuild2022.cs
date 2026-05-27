@@ -51,7 +51,19 @@ namespace GolfSimulation.EditorBuild
             if (!Directory.Exists(unityLibrary))
                 throw new DirectoryNotFoundException($"Export finished but unityLibrary was not found: {unityLibrary}");
 
+            NormalizeUnityLibraryGradle(unityLibrary);
             Debug.Log($"[AndroidLibraryBuild2022] Android Library exported: {unityLibrary}");
+        }
+
+        private static void NormalizeUnityLibraryGradle(string unityLibrary)
+        {
+            string gradlePath = Path.Combine(unityLibrary, "build.gradle");
+            if (!File.Exists(gradlePath))
+                return;
+
+            string content = File.ReadAllText(gradlePath);
+            content = content.Replace("buildToolsVersion '34.0.0'", "buildToolsVersion '35.0.0'");
+            File.WriteAllText(gradlePath, content);
         }
     }
 }

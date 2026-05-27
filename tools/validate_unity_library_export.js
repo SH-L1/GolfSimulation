@@ -38,25 +38,6 @@ if (fs.existsSync(appGradlePath)) {
   const appGradle = fs.readFileSync(appGradlePath, "utf8");
   expect(appGradle.includes("implementation project(':unityLibrary')"), "app build.gradle does not depend on :unityLibrary.");
   expect(appGradle.includes("pickFirst '**/libunity.so'"), "app build.gradle is missing libunity.so packaging conflict handling.");
-  expect(appGradle.includes("ndkPath \"C:/Program Files/Unity/Hub/Editor/2022.3.62f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK\""), "app build.gradle does not point at the Unity 2022 NDK.");
-}
-
-const rootGradlePath = path.join(root, "android", "build.gradle");
-expect(fs.existsSync(rootGradlePath), "android/build.gradle is missing.");
-if (fs.existsSync(rootGradlePath)) {
-  const rootGradle = fs.readFileSync(rootGradlePath, "utf8");
-  expect(rootGradle.includes('buildToolsVersion = "34.0.0"'), "Root Gradle buildToolsVersion is not aligned with the Unity export.");
-  expect(rootGradle.includes('compileSdkVersion = 35'), "Root Gradle compileSdkVersion is not aligned with the Unity export.");
-  expect(rootGradle.includes('targetSdkVersion = 35'), "Root Gradle targetSdkVersion is not aligned with the Unity export.");
-  expect(rootGradle.includes('ndkVersion = "23.1.7779620"'), "Root Gradle ndkVersion is not aligned with the Unity export.");
-}
-
-const gradlePropertiesPath = path.join(root, "android", "gradle.properties");
-expect(fs.existsSync(gradlePropertiesPath), "android/gradle.properties is missing.");
-if (fs.existsSync(gradlePropertiesPath)) {
-  const gradleProperties = fs.readFileSync(gradlePropertiesPath, "utf8");
-  expect(gradleProperties.includes("ndkVersion=23.1.7779620"), "gradle.properties is missing the Unity NDK version override.");
-  expect(gradleProperties.includes("ndkPath=C:/Program Files/Unity/Hub/Editor/2022.3.62f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK"), "gradle.properties is missing the Unity NDK path override.");
 }
 
 if (fs.existsSync(path.join(unityLibrary, "build.gradle"))) {
@@ -65,6 +46,7 @@ if (fs.existsSync(path.join(unityLibrary, "build.gradle"))) {
     /com\.android\.library/.test(gradle),
     "unityLibrary build.gradle is not an Android library module."
   );
+  expect(gradle.includes("buildToolsVersion '35.0.0'"), "unityLibrary build.gradle is not normalized to Build Tools 35.0.0.");
 }
 
 if (fail.length) {

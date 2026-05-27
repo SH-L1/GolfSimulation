@@ -55,18 +55,11 @@ The expected export path is:
 
 `GolfSimulation_2022/Builds/Android/unityLibrary`
 
-After export, verify the RN/Gradle integration:
+After export, verify the Unity Android Library output and the RN module path:
 
 ```powershell
 node .\tools\validate_unity_library_export.js
 ```
-
-For the React Native Android build, this machine uses:
-
-- Android SDK: `C:/Users/user/AppData/Local/Android/Sdk`
-- Unity NDK: `C:/Program Files/Unity/Hub/Editor/2022.3.62f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK`
-
-`android/local.properties` should point `sdk.dir` at the user Android SDK. The file is local-machine configuration and is ignored by git.
 
 ## React Native Wiring
 
