@@ -46,6 +46,13 @@ namespace GolfSimulation.Core
         [SerializeField] private Color userAvatarTint = new Color(1f, 1f, 1f, 1f);
         [SerializeField] private Color referenceAvatarTint = new Color(0.25f, 0.55f, 1f, 0.42f);
 
+        [Header("Avatar View UI")]
+        [SerializeField] private bool showAvatarViewControls = true;
+        [SerializeField] private bool userAvatarVisible = true;
+        [SerializeField] private bool referenceAvatarVisible = true;
+        [SerializeField, Range(0f, 1f)] private float userAvatarOpacity = 1f;
+        [SerializeField, Range(0f, 1f)] private float referenceAvatarOpacity = 0.42f;
+
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
 
@@ -74,6 +81,7 @@ namespace GolfSimulation.Core
         private GameObject referenceAvatar;
         private SwingPlayer referenceSwingPlayer;
         private PoseDataLoader referenceDataLoader;
+        private Rect avatarControlsRect = new Rect(12, 12, 280, 170);
 
         // ──────────────────────────────────────────────────────────────────────
         // 초기화
@@ -100,7 +108,7 @@ namespace GolfSimulation.Core
             if (createReferenceOverlay)
                 StartCoroutine(CreateReferenceOverlayAfterStartup());
 
-            ApplyAvatarTint(swingPlayer?.TargetAnimator?.gameObject, userAvatarTint);
+            ApplyUserAvatarView();
             Debug.Log("[SwingCtrl] 초기화 완료 — UaaL API 준비됨");
         }
 
@@ -120,7 +128,7 @@ namespace GolfSimulation.Core
             referenceAvatar.name = "Reference Swing Avatar";
 
             DisableCopiedGolfSimulationComponents(referenceAvatar);
-            ApplyAvatarTint(referenceAvatar, referenceAvatarTint);
+            ApplyReferenceAvatarView();
 
             Animator referenceAnimator = referenceAvatar.GetComponentInChildren<Animator>();
             if (referenceAnimator == null)
@@ -191,6 +199,52 @@ namespace GolfSimulation.Core
             material.SetFloat("_ZWrite", 0f);
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        }
+
+        private static void SetAvatarRenderersVisible(GameObject root, bool isVisible)
+        {
+            if (root == null) return;
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer renderer in renderers)
+                renderer.enabled = isVisible;
+        }
+
+        private void ApplyUserAvatarView()
+        {
+            GameObject userAvatar = swingPlayer?.TargetAnimator?.gameObject;
+            Color tint = userAvatarTint;
+            tint.a = Mathf.Clamp01(userAvatarOpacity);
+            ApplyAvatarTint(userAvatar, tint);
+            SetAvatarRenderersVisible(userAvatar, userAvatarVisible);
+        }
+
+        private void ApplyReferenceAvatarView()
+        {
+            Color tint = referenceAvatarTint;
+            tint.a = Mathf.Clamp01(referenceAvatarOpacity);
+            ApplyAvatarTint(referenceAvatar, tint);
+            SetAvatarRenderersVisible(referenceAvatar, referenceAvatarVisible);
+        }
+
+        private static bool ParseEnabled(string value, bool fallback)
+        {
+            if (string.IsNullOrEmpty(value))
+                return true;
+
+            if (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (value == "0" || value.Equals("false", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            return fallback;
+        }
+
+        private static float ParseOpacity(string value, float fallback)
+        {
+            return float.TryParse(value, out float opacity)
+                ? Mathf.Clamp01(opacity)
+                : fallback;
         }
 
         private void Update()
@@ -301,14 +355,38 @@ namespace GolfSimulation.Core
 
         public void SetComparisonOverlayEnabled(string enabled)
         {
-            bool isEnabled = string.IsNullOrEmpty(enabled) ||
-                enabled == "1" ||
-                enabled.Equals("true", StringComparison.OrdinalIgnoreCase);
+            referenceAvatarVisible = ParseEnabled(enabled, referenceAvatarVisible);
+            ApplyReferenceAvatarView();
 
-            if (referenceAvatar != null)
-                referenceAvatar.SetActive(isEnabled);
+            Debug.Log($"[SwingCtrl] Comparison overlay = {referenceAvatarVisible}");
+        }
 
-            Debug.Log($"[SwingCtrl] Comparison overlay = {isEnabled}");
+        public void SetUserAvatarVisible(string enabled)
+        {
+            userAvatarVisible = ParseEnabled(enabled, userAvatarVisible);
+            ApplyUserAvatarView();
+            Debug.Log($"[SwingCtrl] User avatar visible = {userAvatarVisible}");
+        }
+
+        public void SetReferenceAvatarVisible(string enabled)
+        {
+            referenceAvatarVisible = ParseEnabled(enabled, referenceAvatarVisible);
+            ApplyReferenceAvatarView();
+            Debug.Log($"[SwingCtrl] Reference avatar visible = {referenceAvatarVisible}");
+        }
+
+        public void SetUserAvatarOpacity(string opacity)
+        {
+            userAvatarOpacity = ParseOpacity(opacity, userAvatarOpacity);
+            ApplyUserAvatarView();
+            Debug.Log($"[SwingCtrl] User avatar opacity = {userAvatarOpacity:F2}");
+        }
+
+        public void SetReferenceAvatarOpacity(string opacity)
+        {
+            referenceAvatarOpacity = ParseOpacity(opacity, referenceAvatarOpacity);
+            ApplyReferenceAvatarView();
+            Debug.Log($"[SwingCtrl] Reference avatar opacity = {referenceAvatarOpacity:F2}");
         }
 
         public void SetComparisonSyncEnabled(string enabled)
@@ -449,6 +527,9 @@ namespace GolfSimulation.Core
 
         private void OnGUI()
         {
+            if (showAvatarViewControls)
+                avatarControlsRect = GUI.Window(9102, avatarControlsRect, DrawAvatarControls, "Avatar View");
+
             if (!showDebugInfo) return;
             GUILayout.BeginArea(new Rect(Screen.width - 230, 10, 220, 80));
             GUILayout.Label($"[UaaL API] 준비됨");
@@ -456,6 +537,45 @@ namespace GolfSimulation.Core
             GUILayout.Label($"  Phase: {GetCurrentPhase()}");
             GUILayout.Label($"  Playing: {GetIsPlaying()}");
             GUILayout.EndArea();
+        }
+
+        private void DrawAvatarControls(int id)
+        {
+            GUILayout.Space(4);
+
+            bool nextUserVisible = GUILayout.Toggle(userAvatarVisible, " User avatar");
+            if (nextUserVisible != userAvatarVisible)
+            {
+                userAvatarVisible = nextUserVisible;
+                ApplyUserAvatarView();
+            }
+
+            GUILayout.Label($"User opacity: {userAvatarOpacity:F2}");
+            float nextUserOpacity = GUILayout.HorizontalSlider(userAvatarOpacity, 0f, 1f);
+            if (!Mathf.Approximately(nextUserOpacity, userAvatarOpacity))
+            {
+                userAvatarOpacity = nextUserOpacity;
+                ApplyUserAvatarView();
+            }
+
+            GUILayout.Space(8);
+
+            bool nextReferenceVisible = GUILayout.Toggle(referenceAvatarVisible, " Pro avatar");
+            if (nextReferenceVisible != referenceAvatarVisible)
+            {
+                referenceAvatarVisible = nextReferenceVisible;
+                ApplyReferenceAvatarView();
+            }
+
+            GUILayout.Label($"Pro opacity: {referenceAvatarOpacity:F2}");
+            float nextReferenceOpacity = GUILayout.HorizontalSlider(referenceAvatarOpacity, 0f, 1f);
+            if (!Mathf.Approximately(nextReferenceOpacity, referenceAvatarOpacity))
+            {
+                referenceAvatarOpacity = nextReferenceOpacity;
+                ApplyReferenceAvatarView();
+            }
+
+            GUI.DragWindow();
         }
     }
 }
