@@ -1,7 +1,10 @@
 using System.IO;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace GolfSimulation.Data
 {
@@ -34,6 +37,28 @@ namespace GolfSimulation.Data
             IsLoaded = false;
             Sequence = null;
             LoadData();
+        }
+
+        public IEnumerator LoadFromUri(string uri, Action<bool> onComplete = null)
+        {
+            fileName = uri;
+            IsLoaded = false;
+            Sequence = null;
+
+            using (UnityWebRequest request = UnityWebRequest.Get(uri))
+            {
+                yield return request.SendWebRequest();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogError($"[PoseDataLoader] Failed to load pose URI: {uri} | {request.error}");
+                    onComplete?.Invoke(false);
+                    yield break;
+                }
+
+                bool loaded = LoadFromJson(request.downloadHandler.text, uri);
+                onComplete?.Invoke(loaded);
+            }
         }
 
         public bool LoadPreprocessedByIndex(int index)
@@ -102,20 +127,42 @@ namespace GolfSimulation.Data
                 return;
             }
 
-            string json = File.ReadAllText(path);
-            Sequence = JsonConvert.DeserializeObject<PoseSequence>(json);
+            LoadFromJson(File.ReadAllText(path), path);
+        }
+
+        public bool LoadFromJson(string json, string sourceLabel)
+        {
+            IsLoaded = false;
+            Sequence = null;
+
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                Debug.LogError($"[PoseDataLoader] Empty pose JSON: {sourceLabel}");
+                return false;
+            }
+
+            try
+            {
+                Sequence = JsonConvert.DeserializeObject<PoseSequence>(json);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[PoseDataLoader] Failed to parse pose JSON: {sourceLabel}\n{ex}");
+                return false;
+            }
 
             if (Sequence == null || Sequence.frames == null)
             {
-                Debug.LogError("[PoseDataLoader] Failed to parse pose JSON.");
-                return;
+                Debug.LogError($"[PoseDataLoader] Failed to parse pose JSON: {sourceLabel}");
+                return false;
             }
 
             Sequence.Normalize();
             ResolveAddressFrame();
 
             IsLoaded = true;
-            LogLoadSummary(path);
+            LogLoadSummary(sourceLabel);
+            return true;
         }
 
         private string ResolvePosePath(string requestedFileName)

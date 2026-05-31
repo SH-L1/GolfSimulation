@@ -82,6 +82,7 @@ namespace GolfSimulation.Core
         private SwingPlayer referenceSwingPlayer;
         private PoseDataLoader referenceDataLoader;
         private Rect avatarControlsRect = new Rect(12, 12, 280, 170);
+        private Coroutine activeUserLoadRoutine;
 
         // ──────────────────────────────────────────────────────────────────────
         // 초기화
@@ -477,24 +478,55 @@ namespace GolfSimulation.Core
             if (dataLoader == null || swingPlayer == null) return;
             if (string.IsNullOrEmpty(fileName)) return;
 
-            swingPlayer.Stop();
-            dataLoader.LoadFromFile(fileName);
+            if (activeUserLoadRoutine != null)
+                StopCoroutine(activeUserLoadRoutine);
 
-            if (dataLoader.IsLoaded)
-            {
-                swingPlayer.ReinitializeWithLoader();
-                if (syncReferencePlayback)
-                    SyncReferenceToUserFrame();
-                Debug.Log($"[SwingCtrl] LoadSwingData 완료: {fileName}");
-            }
-            else
-            {
-                Debug.LogError($"[SwingCtrl] LoadSwingData 실패: {fileName}");
-            }
+            activeUserLoadRoutine = StartCoroutine(LoadSwingDataRoutine(fileName));
         }
 
         // ──────────────────────────────────────────────────────────────────────
         // 상태 조회 (네이티브에서 폴링용)
+
+        private IEnumerator LoadSwingDataRoutine(string source)
+        {
+            swingPlayer.Stop();
+
+            bool loaded = false;
+            if (ShouldLoadWithUnityWebRequest(source))
+            {
+                yield return dataLoader.LoadFromUri(source, success => loaded = success);
+            }
+            else
+            {
+                dataLoader.LoadFromFile(source);
+                loaded = dataLoader.IsLoaded;
+            }
+
+            if (loaded)
+            {
+                swingPlayer.ReinitializeWithLoader();
+                if (syncReferencePlayback)
+                    SyncReferenceToUserFrame();
+                Debug.Log($"[SwingCtrl] LoadSwingData complete: {source}");
+            }
+            else
+            {
+                Debug.LogError($"[SwingCtrl] LoadSwingData failed: {source}");
+            }
+
+            activeUserLoadRoutine = null;
+        }
+
+        private static bool ShouldLoadWithUnityWebRequest(string source)
+        {
+            if (!Uri.TryCreate(source, UriKind.Absolute, out Uri uri))
+                return false;
+
+            return uri.Scheme == Uri.UriSchemeHttp
+                || uri.Scheme == Uri.UriSchemeHttps
+                || uri.Scheme == Uri.UriSchemeFile
+                || uri.Scheme == "content";
+        }
 
         private void SyncReferenceToUserFrame()
         {
