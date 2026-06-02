@@ -83,6 +83,7 @@ namespace GolfSimulation.Core
         private PoseDataLoader referenceDataLoader;
         private Rect avatarControlsRect = new Rect(12, 12, 280, 170);
         private Coroutine activeUserLoadRoutine;
+        private Coroutine activeReferenceLoadRoutine;
 
         // ──────────────────────────────────────────────────────────────────────
         // 초기화
@@ -456,16 +457,10 @@ namespace GolfSimulation.Core
             if (string.IsNullOrEmpty(fileName) || referenceDataLoader == null || referenceSwingPlayer == null)
                 return;
 
-            referenceSwingPlayer.Stop();
-            referenceDataLoader.LoadFromFile(fileName);
-            if (referenceDataLoader.IsLoaded)
-            {
-                referenceSwingPlayer.ReinitializeWithLoader();
-                if (syncReferencePlayback)
-                    SyncReferenceToUserFrame();
-                referencePoseFileName = fileName;
-                Debug.Log($"[SwingCtrl] LoadReferenceSwingData complete: {fileName}");
-            }
+            if (activeReferenceLoadRoutine != null)
+                StopCoroutine(activeReferenceLoadRoutine);
+
+            activeReferenceLoadRoutine = StartCoroutine(LoadReferenceSwingDataRoutine(fileName));
         }
 
         /// <summary>
@@ -515,6 +510,37 @@ namespace GolfSimulation.Core
             }
 
             activeUserLoadRoutine = null;
+        }
+
+        private IEnumerator LoadReferenceSwingDataRoutine(string source)
+        {
+            referenceSwingPlayer.Stop();
+
+            bool loaded = false;
+            if (ShouldLoadWithUnityWebRequest(source))
+            {
+                yield return referenceDataLoader.LoadFromUri(source, success => loaded = success);
+            }
+            else
+            {
+                referenceDataLoader.LoadFromFile(source);
+                loaded = referenceDataLoader.IsLoaded;
+            }
+
+            if (loaded)
+            {
+                referenceSwingPlayer.ReinitializeWithLoader();
+                if (syncReferencePlayback)
+                    SyncReferenceToUserFrame();
+                referencePoseFileName = source;
+                Debug.Log($"[SwingCtrl] LoadReferenceSwingData complete: {source}");
+            }
+            else
+            {
+                Debug.LogError($"[SwingCtrl] LoadReferenceSwingData failed: {source}");
+            }
+
+            activeReferenceLoadRoutine = null;
         }
 
         private static bool ShouldLoadWithUnityWebRequest(string source)
