@@ -2,16 +2,10 @@ import React from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { PLACEHOLDER_URI } from '../../assets';
-
-// TODO: 실제 에셋으로 교체 필요 (src/assets/index.ts 참고)
-const imgUserProfile = PLACEHOLDER_URI;
 
 const C = {
   bg:        '#f8faf8',
@@ -70,7 +64,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               style={s.avatarWrap}
               onPress={() => navigation?.navigate('Profile')}
               activeOpacity={0.8}>
-              <Image source={{ uri: imgUserProfile }} style={s.avatarImg} />
+              <Text style={s.avatarEmoji}>👤</Text>
             </TouchableOpacity>
           )}
           <Text style={s.title}>{title}</Text>
@@ -80,7 +74,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {rightElement !== undefined ? (
           rightElement
         ) : (
-          <TouchableOpacity style={s.settingsBtn}>
+          <TouchableOpacity
+            style={s.settingsBtn}
+            onPress={() => navigation?.navigate('Profile')}>
             <Text style={s.settingsIcon}>⚙</Text>
           </TouchableOpacity>
         )}
@@ -119,9 +115,10 @@ const s = StyleSheet.create({
   avatarWrap: {
     width: 40, height: 40, borderRadius: 20,
     borderWidth: 2, borderColor: C.greenMid,
-    overflow: 'hidden', backgroundColor: '#e1e3e1',
+    backgroundColor: '#e1e3e1',
+    justifyContent: 'center', alignItems: 'center',
   },
-  avatarImg: { width: '100%', height: '100%' },
+  avatarEmoji: { fontSize: 18 },
 
   title: {
     fontSize: 20, fontWeight: '700',

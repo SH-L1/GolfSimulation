@@ -9,12 +9,11 @@ import {
   Image,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SW } = Dimensions.get('window');
 
-// Figma 에셋 (7일 유효 — 추후 로컬 에셋으로 교체)
-const imgHero = 'https://www.figma.com/api/mcp/asset/b525add0-f709-45be-8eda-777c5c4235af';
+import imgHero from '../../assets/onboarding_hero.png';
 
 const C = {
   bg:          '#f8faf8',
@@ -97,6 +96,7 @@ const PAGES: OnboardPage[] = [
 type Props = { navigation?: any };
 
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
+  const { bottom } = useSafeAreaInsets();
   const [currentPage, setCurrentPage] = useState(0);
   const listRef = useRef<FlatList>(null);
 
@@ -121,7 +121,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     <View style={s.page}>
       {/* 히어로 이미지 */}
       <View style={s.hero}>
-        <Image source={{ uri: imgHero }} style={s.heroImg} resizeMode="cover" />
+        <Image source={imgHero} style={s.heroImg} resizeMode="cover" />
         {/* 하단 그라디언트 */}
         <View style={s.heroGradient} pointerEvents="none" />
         {/* Skip 버튼 */}
@@ -131,7 +131,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {/* 콘텐츠 카드 — 히어로 위로 64px 올라옴 */}
-      <View style={s.contentCard}>
+      <View style={[s.contentCard, { paddingBottom: Math.max(48, bottom + 24) }]}>
         {/* 페이지네이션 도트 */}
         <View style={s.dotsRow}>
           {PAGES.map((_, i) => (

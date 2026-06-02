@@ -1,0 +1,25 @@
+# Project-wide Gradle settings.
+
+org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
+
+android.useAndroidX=true
+
+# Unity 라이브러리가 arm64-v8a 전용이므로 단일 아키텍처로 제한
+reactNativeArchitectures=arm64-v8a
+unityStreamingAssets=.json
+
+newArchEnabled=true
+hermesEnabled=true
+
+# Unity 빌드 프로퍼티 — 로컬 SDK/NDK 경로로 변경
+unity.androidSdkPath=
+unity.androidNdkPath=
+
+# 릴리즈 서명 설정 — 실제 값은 팀에서 별도 수령
+MYAPP_RELEASE_STORE_FILE=handy-release.keystore
+MYAPP_RELEASE_KEY_ALIAS=handy-key
+MYAPP_RELEASE_STORE_PASSWORD=
+MYAPP_RELEASE_KEY_PASSWORD=
+
+edgeToEdgeEnabled=false
+android.experimental.suppressExtractNativeLibsWarnings=true

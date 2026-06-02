@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, ActivityIndicator, BackHandler, ToastAndroid } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,7 +12,9 @@ import { SwingFeedbackScreen } from '../screens/SwingFeedback';
 import { SwingChatScreen } from '../screens/SwingChat';
 import { Viewer3DScreen } from '../screens/Viewer3D';
 import { ProfileScreen } from '../screens/Profile';
+import { CameraScreen } from '../screens/Camera';
 import { navigationRef } from './navigationRef';
+import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from './types';
 
 export type { RootStackParamList };
@@ -20,16 +22,37 @@ export type { RootStackParamList };
 const Stack = createStackNavigator<RootStackParamList>();
 
 export const RootNavigator: React.FC = () => {
+  const { loading, isLoggedIn } = useAuth();
   const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
+  const lastBackPressed = useRef<number>(0);
 
   useEffect(() => {
-    if (__DEV__) {
+    if (loading) return;
+    if (!isLoggedIn) {
       setInitialRoute('Onboarding');
       return;
     }
     AsyncStorage.getItem(STORAGE_KEY_SETUP_DONE).then(value => {
-      setInitialRoute(value === 'true' ? 'Main' : 'Onboarding');
+      setInitialRoute(value === 'true' ? 'Main' : 'LevelSetting');
     });
+  }, [loading, isLoggedIn]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (navigationRef.isReady() && navigationRef.canGoBack()) {
+        navigationRef.goBack();
+        return true;
+      }
+      const now = Date.now();
+      if (now - lastBackPressed.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+      lastBackPressed.current = now;
+      ToastAndroid.show('한 번 더 누르면 앱이 종료됩니다', ToastAndroid.SHORT);
+      return true;
+    });
+    return () => subscription.remove();
   }, []);
 
   if (!initialRoute) {
@@ -54,6 +77,7 @@ export const RootNavigator: React.FC = () => {
         <Stack.Screen name="SwingChat" component={SwingChatScreen} />
         <Stack.Screen name="Viewer3D" component={Viewer3DScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Camera" component={CameraScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

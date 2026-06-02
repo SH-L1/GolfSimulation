@@ -9,11 +9,14 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BottomSpacer } from '../../components/ui/BottomSpacer';
+import { useFabBottom } from '../../hooks/useFabBottom';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { loadChatSessions, SavedChatSession } from '../../hooks/useChatHistory';
 import { getSessions } from '../../api/module1';
 import type { SessionSummary } from '../../types/module1';
+import { VIEW_LABEL, CLUB_LABEL } from '../../constants/swing';
 
 const C = {
   bg:          '#f8faf8',
@@ -32,20 +35,11 @@ const C = {
 };
 
 // ─── 헬퍼 ──────────────────────────────────────────────────────────
-const CLUB_LABELS: Record<string, string> = {
-  driver: 'Driver',
-  iron:   'Iron',
-};
-const VIEW_LABELS: Record<string, string> = {
-  dtl:     'DTL',
-  face_on: 'Face-On',
-  other:   'Other',
-};
 
 function sessionTitle(s: SessionSummary): string {
-  const club = CLUB_LABELS[s.clubType] ?? s.clubType;
-  const view = VIEW_LABELS[s.viewType] ?? s.viewType;
-  return `${club} ${view} Analysis`;
+  const club = CLUB_LABEL[s.clubType] ?? s.clubType;
+  const view = VIEW_LABEL[s.viewType] ?? s.viewType;
+  return `${club} ${view} 분석`;
 }
 
 function formatDate(iso: string): string {
@@ -68,9 +62,8 @@ interface SessionCardProps {
 
 const SessionCard: React.FC<SessionCardProps> = ({ item, featured, onPress }) => {
   const chips = [
-    { label: 'Club', value: CLUB_LABELS[item.clubType] ?? item.clubType, color: undefined },
-    { label: 'View', value: VIEW_LABELS[item.viewType] ?? item.viewType, color: C.blue },
-    { label: 'Score', value: `${item.overallScore}`, color: item.overallScore >= 80 ? C.green : undefined },
+    { label: '클럽', value: CLUB_LABEL[item.clubType] ?? item.clubType, color: undefined },
+    { label: '뷰',   value: VIEW_LABEL[item.viewType] ?? item.viewType,  color: C.blue },
   ];
 
   return (
@@ -89,12 +82,8 @@ const SessionCard: React.FC<SessionCardProps> = ({ item, featured, onPress }) =>
           )}
           <Text style={s.cardTitle} numberOfLines={1}>{sessionTitle(item)}</Text>
         </View>
-        <View style={s.scoreWrap}>
-          <Text style={s.scoreNum}>{item.overallScore}</Text>
-          <Text style={s.scoreDenom}>/100</Text>
-        </View>
       </View>
-      <Text style={s.cardDate}>{formatDate(item.analyzedAt).toUpperCase()}</Text>
+      <Text style={s.cardDate}>{item.analyzedAt ? formatDate(item.analyzedAt).toUpperCase() : '-'}</Text>
 
       <View style={s.metricsRow}>
         {chips.map(chip => (
@@ -116,6 +105,7 @@ type Props = { navigation?: any };
 const PAGE_SIZE = 20;
 
 export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
+  const fabBottom = useFabBottom(true);
   const [activeTab, setActiveTab]     = useState<'swing' | 'ai'>('swing');
   const [searchText, setSearchText]   = useState('');
   const [aiSearchText, setAiSearchText] = useState('');
@@ -164,7 +154,7 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
   const filtered = searchText
     ? sessions.filter(s =>
         sessionTitle(s).toLowerCase().includes(searchText.toLowerCase()) ||
-        (CLUB_LABELS[s.clubType] ?? s.clubType).toLowerCase().includes(searchText.toLowerCase()),
+        (CLUB_LABEL[s.clubType] ?? s.clubType).toLowerCase().includes(searchText.toLowerCase()),
       )
     : sessions;
 
@@ -315,7 +305,7 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
                 key={card.chatSessionId}
                 style={s.aiHistCard}
                 activeOpacity={0.75}
-                onPress={() => navigation?.navigate('SwingChat', { chatSessionId: card.chatSessionId })}>
+                onPress={() => navigation?.navigate('SwingChat', { chatSessionId: card.chatSessionId, sessionId: card.sessionId })}>
                 <View style={s.aiHistTop}>
                   <Text style={s.aiHistTitle}>{card.title}</Text>
                   <View style={[s.catBadge, { backgroundColor: card.badgeBg }]}>
@@ -345,12 +335,12 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
 
-        <View style={{ height: 100 }} />
+        <BottomSpacer tabBar />
       </ScrollView>
 
       {/* FAB */}
       <TouchableOpacity
-        style={s.fab}
+        style={[s.fab, { bottom: fabBottom }]}
         onPress={() => navigation?.navigate('SwingChat', {})}>
         <Text style={s.fabIcon}>💬</Text>
       </TouchableOpacity>
@@ -418,10 +408,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 2, flexShrink: 0,
   },
   featuredBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
-
-  scoreWrap: { flexDirection: 'row', alignItems: 'flex-end', flexShrink: 0 },
-  scoreNum:   { fontSize: 18, fontWeight: '700', color: C.green, lineHeight: 20 },
-  scoreDenom: { fontSize: 10, color: C.textMuted, lineHeight: 14, marginBottom: 1 },
 
   metricsRow: { flexDirection: 'row', gap: 8 },
   metricChip: {

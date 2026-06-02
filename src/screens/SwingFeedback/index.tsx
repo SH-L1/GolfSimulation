@@ -4,16 +4,17 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BottomSpacer } from '../../components/ui/BottomSpacer';
+import { useFabBottom } from '../../hooks/useFabBottom';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { LoadingOverlay } from '../../components/common/LoadingOverlay';
 import { useAnalysisResult } from '../../hooks/useSwingAnalysis';
 import { setAnalysisResult } from '../../store/analysisStore';
 import type { MetricId, MetricValue, SwingPhase } from '../../types/module1';
-import { PLACEHOLDER_URI } from '../../assets';
+import { PHASE_LABEL } from '../../constants/swing';
 
 const C = {
   bg:          '#f8faf8',
@@ -34,28 +35,35 @@ const C = {
   grayDark:    '#e1e3e1',
 };
 
-// ── 메타데이터 (아이콘·라벨 등 API에 없는 표시용 정보) ────────────
-const PHASE_LABEL: Record<SwingPhase, string> = {
-  address: '어드레스',
-  top:     '백스윙',
-  impact:  '임팩트',
-  finish:  '피니시',
-};
 
 const METRIC_META: Record<MetricId, { icon: string; iconBg: string; title: string; subtitle: string }> = {
-  STANCE_RATIO:  { icon: '📐', iconBg: C.bluePill,  title: 'Stance Ratio',        subtitle: 'Foot width vs shoulder width' },
-  SHOULDER_ROT:  { icon: '🔄', iconBg: C.greenPill, title: 'Shoulder Rotation',   subtitle: 'Rotation angle at backswing top' },
-  X_FACTOR:      { icon: '↕',  iconBg: C.greenPill, title: 'Top X-Factor',        subtitle: 'Shoulder/Hip separation' },
-  BACKSWING_MAX: { icon: '⬆', iconBg: C.bluePill,  title: 'Backswing Max',       subtitle: 'Club shaft angle at top' },
-  HIP_ROTATION:  { icon: '🦴', iconBg: C.bluePill,  title: 'Impact Hip Rotation', subtitle: 'Pelvic angle vs Target line' },
-  WRIST_ANGLE:   { icon: '✋', iconBg: C.greenPill, title: 'Wrist Angle',         subtitle: 'Wrist hinge at impact' },
-  SPINE_TILT:    { icon: '📏', iconBg: C.bluePill,  title: 'Spine Tilt',          subtitle: 'Lateral tilt at impact' },
+  STANCE_RATIO:  { icon: '📐', iconBg: C.bluePill,  title: '발 너비',       subtitle: '어깨 너비 대비 발 간격' },
+  SHOULDER_ROT:  { icon: '🔄', iconBg: C.greenPill, title: '어깨 회전',     subtitle: '백스윙 최고점에서 어깨 회전 각도' },
+  X_FACTOR:      { icon: '↕',  iconBg: C.greenPill, title: '상하체 분리',   subtitle: '어깨와 골반의 회전 차이' },
+  BACKSWING_MAX: { icon: '⬆', iconBg: C.bluePill,  title: '백스윙 각도',   subtitle: '최고점에서 클럽 기울기' },
+  HIP_ROTATION:  { icon: '🦴', iconBg: C.bluePill,  title: '골반 회전',     subtitle: '공을 칠 때 골반 방향' },
+  WRIST_ANGLE:   { icon: '✋', iconBg: C.greenPill, title: '손목 각도',     subtitle: '공을 칠 때 손목 꺾임' },
+  SPINE_TILT:    { icon: '📏', iconBg: C.bluePill,  title: '척추 기울기',   subtitle: '공을 칠 때 몸통 기울기' },
 };
 
 function scoreColor(score: number) {
   if (score >= 80) { return C.green; }
   if (score >= 60) { return C.textPrimary; }
   return C.red;
+}
+
+const UNIT_SYM: Record<string, string> = {
+  deg:   '°',
+  ratio: '',
+  '%':   '%',
+};
+
+function fmtVal(val: number | undefined, unit: string | undefined): string {
+  if (val == null) { return '-'; }
+  const sym = UNIT_SYM[unit ?? ''] ?? (unit ?? '');
+  const rounded = Math.round(val * 10) / 10;
+  const str = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return `${str}${sym}`;
 }
 
 // ── CircleGauge ───────────────────────────────────────────────────
@@ -94,13 +102,13 @@ type Props = {
 };
 
 export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
+  const fabBottom = useFabBottom(false);
   const sessionId = route?.params?.sessionId;
-  const { result, loading, error, fetch } = useAnalysisResult();
+  const { result: apiResult, loading, error, fetch } = useAnalysisResult();
+  const result = apiResult ?? null;
 
   useEffect(() => {
-    if (sessionId) {
-      void fetch(sessionId);
-    }
+    if (sessionId) { void fetch(sessionId); }
   }, [sessionId]);
 
   // 전역 store에 결과 저장 (SwingChat에서 current_session_id로 활용)
@@ -120,7 +128,8 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // 하위 2개 지표 (점수 낮은 순)
   const worstMetrics: { id: MetricId; metric: MetricValue }[] = result
-    ? Object.entries(result.metrics)
+    ? (Object.entries(result.metrics) as [string, MetricValue][])
+        .filter(([, m]) => m.userValue != null && m.userValue !== 0)
         .sort(([, a], [, b]) => a.score - b.score)
         .slice(0, 2)
         .map(([id, metric]) => ({ id: id as MetricId, metric }))
@@ -145,36 +154,22 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
       ) : (
         <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
 
-          {/* ── 히어로: 스윙 이미지 + 종합 점수 ── */}
+          {/* ── 종합 점수 카드 ── */}
           <View style={s.heroCard}>
-            <Image source={{ uri: PLACEHOLDER_URI }} style={s.heroImg} />
-
-            <View style={s.heroBadgeLeft}>
-              <Text style={s.heroBadgeSub}>PHASE</Text>
-              <Text style={s.heroBadgeMain}>Impact</Text>
-            </View>
-
-            <View style={s.heroBadgeRight}>
-              <View style={s.recordDot} />
-              <Text style={s.heroBadgeTrack}>Pro Tracking Active</Text>
-            </View>
-
-            <View style={s.scoreFloat}>
-              <View style={s.scoreRow}>
-                <View>
-                  <Text style={s.scoreLabel}>종합 스윙 점수</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-                    <Text style={[s.scoreValue, { color: scoreColor(overallScore) }]}>
-                      {overallScore}
-                    </Text>
-                    <Text style={[s.scoreMax, { color: scoreColor(overallScore) }]}>/100</Text>
-                  </View>
+            <View style={s.scoreRow}>
+              <View>
+                <Text style={s.scoreLabel}>종합 스윙 점수</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
+                  <Text style={[s.scoreValue, { color: scoreColor(overallScore) }]}>
+                    {overallScore}
+                  </Text>
+                  <Text style={[s.scoreMax, { color: scoreColor(overallScore) }]}>/100</Text>
                 </View>
               </View>
-              {firstRec && (
-                <Text style={s.scoreSummary} numberOfLines={2}>{firstRec.body}</Text>
-              )}
             </View>
+            {firstRec && (
+              <Text style={s.scoreSummary} numberOfLines={2}>{firstRec.body}</Text>
+            )}
           </View>
 
           {/* ── 3D 리플레이 CTA ── */}
@@ -184,14 +179,14 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text style={s.ctaIconText}>🎮</Text>
               </View>
               <View>
-                <Text style={s.ctaTitle}>Immersive 3D Replay</Text>
-                <Text style={s.ctaSub}>Analyze every angle in the simulator.</Text>
+                <Text style={s.ctaTitle}>3D 스윙 리플레이</Text>
+                <Text style={s.ctaSub}>다양한 각도로 내 스윙을 확인해 보세요.</Text>
               </View>
             </View>
             <TouchableOpacity
               style={s.ctaBtn}
               onPress={() => navigation?.navigate('Viewer3D', { sessionId })}>
-              <Text style={s.ctaBtnText}>View in 3D</Text>
+              <Text style={s.ctaBtnText}>3D로 보기</Text>
             </TouchableOpacity>
           </View>
 
@@ -201,7 +196,7 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={s.phaseHeader}>
                 <Text style={s.phaseTitle}>페이즈별 성과</Text>
                 <View style={s.detailsBadge}>
-                  <Text style={s.detailsText}>DETAILS</Text>
+                  <Text style={s.detailsText}>상세</Text>
                 </View>
               </View>
               <View style={s.phaseGrid}>
@@ -217,13 +212,13 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
 
           {/* ── Kinematic Sequence (디자인 요소 유지) ── */}
           <View style={s.kinemCard}>
-            <Text style={s.kinemTitle}>KINEMATIC SEQUENCE</Text>
+            <Text style={s.kinemTitle}>스윙 타이밍 분석</Text>
             <View style={s.kinemChart}>
               <View style={s.kinemPolygon} />
               <Text style={s.kinemInner}>📊</Text>
             </View>
             <Text style={s.kinemNote}>
-              Transition timing <Text style={{ color: C.pinkText, fontWeight: '700' }}>slightly off-tempo</Text>.
+              전환 타이밍이 <Text style={{ color: C.pinkText, fontWeight: '700' }}>약간 이른 편</Text>입니다.
             </Text>
           </View>
 
@@ -234,7 +229,7 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text style={s.metricsTitle}>핵심 스윙 지표</Text>
               </View>
               {worstMetrics.map(({ id, metric }, i) => {
-                const meta     = METRIC_META[id];
+                const meta     = METRIC_META[id] ?? { icon: '📊', iconBg: C.bluePill, title: id, subtitle: '' };
                 const myColor  = scoreColor(metric.score);
                 return (
                   <View key={id} style={[s.metricRow, i < worstMetrics.length - 1 && s.metricRowBorder]}>
@@ -250,16 +245,16 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
                     <View style={s.metricBottom}>
                       <View>
                         <Text style={[s.metricVal, { color: myColor }]}>
-                          {metric.userValue}{metric.unit}
+                          {fmtVal(metric.userValue, metric.unit)}
                         </Text>
-                        <Text style={s.metricValLabel}>MY MEASUREMENT</Text>
+                        <Text style={s.metricValLabel}>내 수치</Text>
                       </View>
                       <View style={s.metricDivider} />
                       <View style={{ alignItems: 'flex-end' }}>
                         <Text style={[s.metricVal, { opacity: 0.3, fontStyle: 'italic' }]}>
-                          {metric.proMean}{metric.unit}
+                          {fmtVal(metric.proMean, metric.unit)}
                         </Text>
-                        <Text style={s.metricValLabel}>PRO AVERAGE</Text>
+                        <Text style={s.metricValLabel}>프로 평균</Text>
                       </View>
                     </View>
                   </View>
@@ -286,13 +281,13 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           )}
 
-          <View style={{ height: 100 }} />
+          <BottomSpacer tabBar={false} />
         </ScrollView>
       )}
 
       {/* FAB — AI 챗봇으로 이동 */}
       <TouchableOpacity
-        style={s.fab}
+        style={[s.fab, { bottom: fabBottom }]}
         onPress={() => navigation?.navigate('SwingChat', { sessionId })}>
         <Text style={s.fabIcon}>💬</Text>
       </TouchableOpacity>
@@ -313,22 +308,21 @@ const s = StyleSheet.create({
   retryText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
   heroCard: {
-    borderRadius: 28, overflow: 'hidden', height: 420,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2, shadowRadius: 20, elevation: 10,
+    backgroundColor: C.surface, borderRadius: 28, padding: 20, gap: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
   },
-  heroImg:        { width: '100%', height: '100%', resizeMode: 'cover', position: 'absolute' },
-  heroBadgeLeft:  { position: 'absolute', top: 14, left: 14, backgroundColor: 'rgba(255,255,255,0.75)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
+  heroBadgeRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  heroBadgeLeft:  { backgroundColor: C.greenLight, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
   heroBadgeSub:   { fontSize: 11, fontWeight: '700', color: C.textPrimary, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 0.9 },
   heroBadgeMain:  { fontSize: 16, fontWeight: '700', color: C.green },
-  heroBadgeRight: { position: 'absolute', top: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.75)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  heroBadgeRight: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.greenLight, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   recordDot:      { width: 8, height: 8, borderRadius: 4, backgroundColor: C.red },
   heroBadgeTrack: { fontSize: 10, fontWeight: '700', color: C.textPrimary },
-  scoreFloat:     { position: 'absolute', bottom: 20, left: 16, right: 16, backgroundColor: 'rgba(255,255,255,0.80)', borderRadius: 24, padding: 18, gap: 10 },
-  scoreRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  scoreLabel:     { fontSize: 11, fontWeight: '700', color: C.textPrimary, opacity: 0.7, textTransform: 'uppercase' },
-  scoreValue:     { fontSize: 36, fontWeight: '700', letterSpacing: -1.8 },
-  scoreMax:       { fontSize: 18, opacity: 0.5, marginBottom: 4 },
+  scoreRow:       { flexDirection: 'row', alignItems: 'flex-end' },
+  scoreLabel:     { fontSize: 11, fontWeight: '700', color: C.textPrimary, opacity: 0.7, textTransform: 'uppercase', marginBottom: 4 },
+  scoreValue:     { fontSize: 48, fontWeight: '700', letterSpacing: -2 },
+  scoreMax:       { fontSize: 20, opacity: 0.5, marginBottom: 6 },
   scoreSummary:   { fontSize: 12, color: C.textSub, lineHeight: 20 },
 
   ctaCard:    { backgroundColor: C.grayDark, borderRadius: 28, padding: 18, gap: 12 },

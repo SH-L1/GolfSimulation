@@ -9,7 +9,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader } from '../../components/ui/AppHeader';
-import { STORAGE_KEY_EXPERIENCE_LEVEL } from '../../hooks/useAuth';
+import { useAuth } from '../../context/AuthContext';
+import type { ExperienceLevel } from '../../utils/experienceMapper';
 
 export const STORAGE_KEY_SETUP_DONE = 'handy_setup_done';
 
@@ -45,14 +46,14 @@ const LEVELS: Level[] = [
     label: '중급',
     icon: '🏌️',
     iconBg: '#94f990',
-    desc: '핸디캡을 가진 꾸준한 골퍼로 기술과 전략을 다듬고자 함',
+    desc: '꾸준히 연습하는 골퍼로 기술과 전략을 한 단계 더 높이고 싶음',
   },
   {
     key: 'advanced',
     label: '고급',
     icon: '🏆',
     iconBg: '#ffd9e2',
-    desc: '낮은 핸디캡의 경쟁적인 골퍼로 고급 분석과 통찰력을 원함',
+    desc: '실력 있는 골퍼로 세밀한 분석과 고급 피드백을 원함',
   },
 ];
 
@@ -63,13 +64,12 @@ type Props = {
 };
 
 export const LevelSettingScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { updateExperienceLevel } = useAuth();
   const [selected, setSelected] = useState<string>('intermediate');
 
   const handleConfirm = async () => {
-    await AsyncStorage.multiSet([
-      [STORAGE_KEY_SETUP_DONE, 'true'],
-      [STORAGE_KEY_EXPERIENCE_LEVEL, selected],
-    ]);
+    await AsyncStorage.setItem(STORAGE_KEY_SETUP_DONE, 'true');
+    await updateExperienceLevel(selected as ExperienceLevel);
     const next = route?.params?.nextScreen;
     if (next) {
       navigation?.replace(next);

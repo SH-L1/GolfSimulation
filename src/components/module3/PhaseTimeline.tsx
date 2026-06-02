@@ -1,19 +1,13 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import type { PoseFrame } from '../../types/module3';
+import { PHASE_LABEL } from '../../constants/swing';
 
 const PHASE_COLOR: Record<string, string> = {
   address:  '#0061a4',
   top:      '#006e1c',
   impact:   '#ba1a1a',
   finish:   '#C8922A',
-};
-
-const PHASE_LABEL: Record<string, string> = {
-  address: '어드레스',
-  top:     '백스윙',
-  impact:  '임팩트',
-  finish:  '피니시',
 };
 
 interface Props {
@@ -28,9 +22,10 @@ export const PhaseTimeline: React.FC<Props> = ({ frames, currentIndex, onSeek })
 
   // 페이즈 구간 계산
   const phases = frames.reduce<{ phase: string; start: number; end: number }[]>((acc, f) => {
+    const phase = f.phase ?? 'unknown';
     const last = acc[acc.length - 1];
-    if (last && last.phase === f.phase) { last.end = f.frame_index; }
-    else { acc.push({ phase: f.phase, start: f.frame_index, end: f.frame_index }); }
+    if (last && last.phase === phase) { last.end = f.frame; }
+    else { acc.push({ phase, start: f.frame, end: f.frame }); }
     return acc;
   }, []);
 

@@ -53,8 +53,8 @@ export function useSwingAnalysis() {
     setUploading(true);
     setUploadError(null);
     try {
-      const { job_id } = await analyzeSwing(params);
-      return job_id;
+      const { jobid } = await analyzeSwing(params);
+      return jobid;
     } catch (e) {
       setUploadError(String(e));
       return null;

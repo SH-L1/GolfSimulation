@@ -1,4 +1,4 @@
-export type ViewType  = 'dtl' | 'face_on' | 'other';
+export type ViewType  = 'faceon' | 'downtheline';
 export type ClubType  = 'driver' | 'iron';
 export type SwingPhase = 'address' | 'top' | 'impact' | 'finish';
 export type MetricId  =
@@ -11,20 +11,20 @@ export type MetricId  =
   | 'SPINE_TILT';
 
 export interface MetricValue {
-  userValue:  number;
-  proMean:    number;
-  proStd:     number;
-  idealRange: [number, number] | null;
-  unit:       string;
-  score:      number;
+  userValue:   number;
+  score:       number;
+  proMean?:    number;
+  proStd?:     number;
+  idealRange?: [number, number] | null;
+  unit?:       string;
 }
 
 export interface Recommendation {
-  metricId:        string;
-  title:           string;
-  body:            string;
-  drillTitle:      string;
-  drillPreviewUrl: string | null;
+  metricId:         string;
+  title?:           string;
+  body?:            string;
+  drillTitle?:      string;
+  drillPreviewUrl?: string | null;
 }
 
 export interface AnalysisResult {
@@ -33,18 +33,17 @@ export interface AnalysisResult {
   clubType:        ClubType;
   overallScore:    number;
   analyzedAt:      string;
-  phaseScores:     Record<SwingPhase, number>;
-  metrics:         Record<MetricId, MetricValue>;
+  phaseScores:     Record<string, number>;
+  metrics:         Record<string, MetricValue>;
   recommendations: Recommendation[];
+  chartUrl?:       string | null;
 }
 
 export interface SessionSummary {
-  sessionId:    string;
-  overallScore: number;
-  viewType:     string;
-  clubType:     string;
-  analyzedAt:   string;
-  thumbnailUrl: string | null;
+  sessionId:  string;
+  viewType:   string;
+  clubType:   string;
+  analyzedAt: string | null;
 }
 
 export interface SessionListResponse {
@@ -55,12 +54,12 @@ export interface SessionListResponse {
 }
 
 export interface AnalyzeJobResponse {
-  job_id: string;
+  jobid:  string;
   status: 'queued' | 'processing' | 'done' | 'error';
 }
 
 export interface JobStatusResponse {
-  status:      'queued' | 'processing' | 'done' | 'error';
-  session_id?: string;
-  message?:    string;
+  status:     'queued' | 'processing' | 'done' | 'error';
+  sessionid?: string;
+  message?:   string;
 }

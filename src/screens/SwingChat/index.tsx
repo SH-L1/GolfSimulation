@@ -1,29 +1,26 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PLACEHOLDER_URI } from '../../assets';
 import { saveChatSession } from '../../hooks/useChatHistory';
 import { useChatStream } from '../../hooks/useChatStream';
 import { getChatHistory } from '../../api/module2';
-import { getCurrentSessionId } from '../../store/analysisStore';
 import { STORAGE_KEY_EXPERIENCE_LEVEL } from '../../hooks/useAuth';
 import { toApiLevel } from '../../utils/experienceMapper';
 import type { ExperienceLevel } from '../../utils/experienceMapper';
 
-const imgCoachPortrait = PLACEHOLDER_URI;
-const imgDrillDemo     = PLACEHOLDER_URI;
 
 const C = {
   bg:        '#f8faf8',
@@ -38,7 +35,8 @@ const C = {
   chipText:  '#001d36',
 };
 
-const QUICK_CHIPS = ['스트레칭 드릴 알려줘', '프로와 비교해줘', '레슨 예약 방법'];
+const CHIPS_WITH_SESSION  = ['내 스윙의 가장 큰 문제점이 뭐야?', '개선 드릴 추천해줘', '프로와 비교해줘'];
+const CHIPS_NO_SESSION    = ['스트레칭 드릴 알려줘', '초보자 골프 팁 알려줘', '레슨 예약 방법'];
 
 type Message = {
   id:         string;
@@ -70,10 +68,10 @@ type Props = {
 };
 
 export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
+  const insets             = useSafeAreaInsets();
   const sessionId         = route?.params?.sessionId;
-  const initChatSessionId = route?.params?.chatSessionId;
 
-  const chatSessionIdRef  = useRef<string | null>(initChatSessionId ?? null);
+  const chatSessionIdRef  = useRef<string | null>(null);
   const streamingIdRef    = useRef<string | null>(null);
   const expLevelRef       = useRef<'beginner' | 'experienced'>('beginner');
 
@@ -87,39 +85,24 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
   const [inputText, setInputText]       = useState('');
   const [messages, setMessages]         = useState<Message[]>([WELCOME_MESSAGE]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [kbHeight, setKbHeight]         = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
-  // ── 히스토리 로드 (sessionId가 있으면) ──────────────────────────
   useEffect(() => {
-    const analysisSessionId = sessionId ?? getCurrentSessionId();
-    if (!analysisSessionId) { return; }
-
-    setHistoryLoading(true);
-    getChatHistory(analysisSessionId)
-      .then(res => {
-        chatSessionIdRef.current = res.chat_session_id;
-        if (res.messages.length === 0) { return; }
-        const mapped: Message[] = res.messages.map(m => ({
-          id:   m.message_id,
-          role: m.role === 'user' ? 'user' : 'ai',
-          text: m.content,
-          time: new Date(m.created_at).toLocaleTimeString('en-US', {
-            hour:   '2-digit',
-            minute: '2-digit',
-            hour12: true,
-          }),
-        }));
-        setMessages(mapped);
-      })
-      .catch(() => { /* 히스토리 없으면 초기 환영 메시지 유지 */ })
-      .finally(() => setHistoryLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const show = Keyboard.addListener('keyboardDidShow', e => {
+      setKbHeight(e.endCoordinates.height);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
   }, []);
 
   // ── SSE 스트리밍 ─────────────────────────────────────────────────
   const handleToken = useCallback((token: string) => {
+    const id = streamingIdRef.current;
+    if (!id) { return; }
     setMessages(prev => prev.map(m =>
-      m.id === streamingIdRef.current
+      m.id === id
         ? { ...m, text: m.text + token }
         : m,
     ));
@@ -136,6 +119,53 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const { status, error: streamError, send, cancel } = useChatStream(handleToken, handleDone);
   const isBusy = status === 'connecting' || status === 'streaming';
+
+  // 탭으로 돌아올 때 chatSessionId 없으면 상태 초기화
+  useFocusEffect(
+    useCallback(() => {
+      if (!route?.params?.chatSessionId) {
+        cancel();
+        streamingIdRef.current   = null;
+        chatSessionIdRef.current = null;
+        setMessages([WELCOME_MESSAGE]);
+      }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [route?.params?.chatSessionId]),
+  );
+
+  // ── 히스토리 로드 (Records에서 chatSessionId 파라미터가 바뀔 때마다 재실행) ──
+  useEffect(() => {
+    const chatId = route?.params?.chatSessionId;
+    const sid    = route?.params?.sessionId;
+    if (!chatId || !sid) { return; }
+
+    // 기존 스트림 취소 + 상태 초기화
+    cancel();
+    streamingIdRef.current    = null;
+    chatSessionIdRef.current  = chatId;
+    setMessages([WELCOME_MESSAGE]);
+
+    setHistoryLoading(true);
+    getChatHistory(sid)
+      .then(res => {
+        chatSessionIdRef.current = res.chat_session_id;
+        if (res.messages.length === 0) { return; }
+        const mapped: Message[] = res.messages.map(m => ({
+          id:   m.message_id,
+          role: m.role === 'user' ? 'user' : 'ai',
+          text: m.content,
+          time: new Date(m.created_at).toLocaleTimeString('en-US', {
+            hour:   '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          }),
+        }));
+        setMessages(mapped);
+      })
+      .catch(() => { /* 히스토리 없으면 환영 메시지 유지 */ })
+      .finally(() => setHistoryLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route?.params?.chatSessionId]);
 
   // SSE 오류 발생 시 스트리밍 메시지에 오류 텍스트 표시
   useEffect(() => {
@@ -173,38 +203,44 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
 
     send({
-      message:             trimmed,
-      session_id:          chatSessionIdRef.current,
-      current_session_id:  getCurrentSessionId(),
-      experience_level:    expLevelRef.current,
+      message:          trimmed,
+      swingSessionId:   sessionId ?? null,
+      chatSessionId:    chatSessionIdRef.current,
+      experience_level: expLevelRef.current,
     });
   }, [isBusy, send]);
 
   // ── 채팅 종료 + 저장 ─────────────────────────────────────────────
   const endChat = useCallback(() => {
-    Alert.alert('채팅 종료', '채팅을 종료하고 기록을 저장하시겠어요?', [
+    Alert.alert('채팅 종료', '채팅을 종료하시겠어요?', [
       { text: '취소', style: 'cancel' },
       {
         text:  '종료',
         style: 'destructive',
         onPress: async () => {
           cancel();
-          const title = route?.params?.title ?? '스윙 분석 채팅';
-          const id    = chatSessionIdRef.current ?? ('chat-' + Date.now());
-          const last  = messages.filter(m => !m.streaming).at(-1)?.text ?? '';
-          const date  = new Date().toLocaleDateString('ko-KR', {
-            year: 'numeric', month: '2-digit', day: '2-digit',
-          });
-          await saveChatSession({
-            chatSessionId: id,
-            sessionId,
-            title,
-            preview:  last.slice(0, 60),
-            date,
-            messages: messages
-              .filter(m => !m.streaming)
-              .map(m => ({ role: m.role, text: m.text })),
-          });
+          // sessionId(스윙 기록)와 백엔드 chatSessionId가 모두 있을 때만 로컬 저장
+          // 그 외(기록 없는 채팅, 메시지 없는 채팅)는 저장 스킵
+          const backendChatId = chatSessionIdRef.current;
+          if (sessionId && backendChatId) {
+            const title = route?.params?.title ?? '스윙 분석 채팅';
+            const last  = messages.filter(m => !m.streaming).at(-1)?.text ?? '';
+            const date  = new Date().toLocaleDateString('ko-KR', {
+              year: 'numeric', month: '2-digit', day: '2-digit',
+            });
+            await saveChatSession({
+              chatSessionId: backendChatId,
+              sessionId,
+              title,
+              preview:  last.slice(0, 60),
+              date,
+              messages: messages
+                .filter(m => !m.streaming)
+                .map(m => ({ role: m.role, text: m.text })),
+            });
+          }
+          chatSessionIdRef.current = null;
+          setMessages([WELCOME_MESSAGE]);
           navigation?.goBack();
         },
       },
@@ -218,8 +254,15 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
       <SafeAreaView edges={['top']} style={s.headerWrap}>
         <View style={s.header}>
           <View style={s.headerLeft}>
+            {navigation?.canGoBack() && (
+              <TouchableOpacity
+                style={s.backBtn}
+                onPress={() => navigation.goBack()}>
+                <Text style={s.backBtnText}>‹</Text>
+              </TouchableOpacity>
+            )}
             <View style={s.coachBorder}>
-              <Image source={{ uri: imgCoachPortrait }} style={s.coachImg} />
+              <Text style={s.coachEmoji}>🤖</Text>
             </View>
             <View>
               <Text style={s.headerTitle}>Handy AI</Text>
@@ -273,9 +316,7 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
                       style={s.drillCard}
                       activeOpacity={0.8}
                       onPress={() => navigation?.navigate('Viewer3D', { sessionId })}>
-                      <View style={s.drillThumbWrap}>
-                        <Image source={{ uri: imgDrillDemo }} style={s.drillThumb} />
-                      </View>
+                      <View style={s.drillThumbWrap} />
                       <View style={s.drillInfo}>
                         <Text style={s.drillLabel}>추천 드릴</Text>
                         <Text style={s.drillTitle} numberOfLines={1}>힙 파킹 드릴 (Hip Par…</Text>
@@ -304,7 +345,7 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* 퀵 액션 칩 (스트리밍 중 아닐 때) */}
         {!isBusy && messages.length <= 2 && (
           <View style={s.chipsRow}>
-            {QUICK_CHIPS.map(chip => (
+            {(sessionId ? CHIPS_WITH_SESSION : CHIPS_NO_SESSION).map((chip: string) => (
               <TouchableOpacity
                 key={chip}
                 style={s.chip}
@@ -316,8 +357,8 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
         )}
       </ScrollView>
 
-      {/* 입력창 */}
-      <View style={s.inputFloating}>
+      {/* 입력창 — 탭바(최대 96px) + 여백을 고려한 위치 */}
+      <View style={[s.inputFloating, { bottom: kbHeight > 0 ? kbHeight + 8 : Math.max(insets.bottom + 16, 106) }]}>
         <View style={s.inputBar}>
           {isBusy ? (
             /* 취소 버튼 */
@@ -361,11 +402,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 24, paddingVertical: 14,
   },
   headerLeft:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backBtn:     { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
+  backBtnText: { fontSize: 32, color: C.green, lineHeight: 34, marginTop: -4 },
   coachBorder: {
     width: 40, height: 40, borderRadius: 20,
     borderWidth: 1, borderColor: C.border, overflow: 'hidden',
   },
-  coachImg:    { width: '100%', height: '100%' },
+  coachEmoji:  { fontSize: 22 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: C.green, letterSpacing: -0.5 },
   statusText:  { fontSize: 11, color: C.textMuted },
 
@@ -411,7 +454,6 @@ const s = StyleSheet.create({
     width: 56, height: 56, borderRadius: 48,
     backgroundColor: 'rgba(76,175,80,0.2)', overflow: 'hidden',
   },
-  drillThumb:   { width: '100%', height: '100%' },
   drillInfo:    { flex: 1, gap: 2 },
   drillLabel:   { fontSize: 10, color: C.green },
   drillTitle:   { fontSize: 14, fontWeight: '700', color: C.textPri },
@@ -448,7 +490,7 @@ const s = StyleSheet.create({
   },
   chipText: { fontSize: 11, fontWeight: '700', color: C.chipText },
 
-  inputFloating: { position: 'absolute', bottom: 80, left: 16, right: 16 },
+  inputFloating: { position: 'absolute', bottom: 106, left: 16, right: 16 },
   inputBar: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: C.glass,

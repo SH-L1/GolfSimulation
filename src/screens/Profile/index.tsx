@@ -3,16 +3,16 @@ import {
   View,
   Text,
   ScrollView,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppHeader } from '../../components/ui/AppHeader';
+import { BottomSpacer } from '../../components/ui/BottomSpacer';
 import { useAuth } from '../../hooks/useAuth';
 import { getSessions } from '../../api/module1';
-import { PLACEHOLDER_URI } from '../../assets';
+import { APP_VERSION } from '../../constants/appVersion';
 
 const C = {
   bg:        '#f8faf8',
@@ -41,10 +41,7 @@ const LEVEL_LABEL: Record<string, string> = {
 };
 
 const SETTINGS = [
-  { key: 'account',  label: '계정 정보',  sub: 'Personal info and preferences', iconBg: C.iconBlue,  icon: '👤' },
-  { key: 'plan',     label: '구독 플랜',  sub: 'Handy Pro+ Monthly Plan',       iconBg: C.iconPink,  icon: '🏷' },
-  { key: 'level',    label: '레벨 설정',  sub: '현재 실력 레벨 변경',               iconBg: C.iconGreen, icon: '🏌️' },
-  { key: 'settings', label: '앱 설정',   sub: 'Notifications and behavior',    iconBg: C.iconGray,  icon: '⚙️' },
+  { key: 'level', label: '레벨 설정', sub: '현재 실력 레벨 변경', iconBg: C.iconGreen, icon: '🏌️' },
 ];
 
 type Props = { navigation?: any };
@@ -89,10 +86,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         {/* 히어로 프로필 섹션 */}
         <View style={s.hero}>
           <View style={s.profileImgWrap}>
-            <Image
-              source={{ uri: user?.avatarUrl ?? PLACEHOLDER_URI }}
-              style={s.profileImg}
-            />
+            <Text style={s.profileEmoji}>👤</Text>
           </View>
           <View style={s.levelBadge}>
             <Text style={s.levelText}>{levelLabel.toUpperCase()}</Text>
@@ -104,7 +98,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           <View style={s.statsRow}>
             <View style={s.statCard}>
               <Text style={s.statValueBlue}>{user?.handicap ?? '—'}</Text>
-              <Text style={s.statLabel}>핸디캡</Text>
+              <Text style={s.statLabel}>실력 지수</Text>
             </View>
             <View style={s.statCard}>
               <Text style={s.statValueGreen}>{totalSessions}</Text>
@@ -138,26 +132,17 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
           ))}
 
-          {/* 로그아웃 */}
-          <TouchableOpacity
-            style={s.logoutRow}
-            activeOpacity={0.7}
-            onPress={handleLogout}>
-            <View style={s.listLeft}>
-              <View style={[s.iconCircle, { backgroundColor: C.iconRed }]}>
-                <Text style={s.iconEmoji}>↪</Text>
-              </View>
-              <Text style={s.logoutLabel}>로그아웃</Text>
-            </View>
-            <Text style={[s.chevron, { color: C.redText }]}>›</Text>
-          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity onPress={handleLogout} activeOpacity={0.6} style={s.logoutBtn}>
+          <Text style={s.logoutText}>로그아웃</Text>
+        </TouchableOpacity>
 
         <View style={s.versionWrap}>
-          <Text style={s.versionText}>HANDY V2.4.0 (BUILD 992)</Text>
+          <Text style={s.versionText}>HANDY {APP_VERSION.toUpperCase()}</Text>
         </View>
 
-        <View style={{ height: 100 }} />
+        <BottomSpacer tabBar />
       </ScrollView>
 
       <TouchableOpacity
@@ -177,12 +162,13 @@ const s = StyleSheet.create({
   hero: { alignItems: 'center' },
   profileImgWrap: {
     width: 128, height: 128, borderRadius: 48,
-    overflow: 'hidden',
+    backgroundColor: '#e1e3e1',
+    justifyContent: 'center', alignItems: 'center',
     borderWidth: 4, borderColor: '#fff',
     shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.12, shadowRadius: 24, elevation: 10,
   },
-  profileImg: { width: '100%', height: '100%' },
+  profileEmoji: { fontSize: 56 },
   levelBadge: {
     marginTop: -10, marginBottom: 24,
     paddingHorizontal: 16, paddingVertical: 4,
@@ -221,14 +207,8 @@ const s = StyleSheet.create({
   listSub:    { fontSize: 12, color: C.textSub, marginTop: 2 },
   chevron:    { fontSize: 22, color: C.textSub },
 
-  logoutRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: C.redBg, borderRadius: 32, padding: 17,
-    borderWidth: 1, borderColor: C.redBorder,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
-  },
-  logoutLabel: { fontSize: 16, color: C.redText },
+  logoutBtn: { alignItems: 'center', paddingVertical: 8 },
+  logoutText: { fontSize: 14, color: C.redText, fontWeight: '600' },
 
   versionWrap: { alignItems: 'center', paddingTop: 8, opacity: 0.8 },
   versionText: {

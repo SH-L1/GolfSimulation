@@ -9,8 +9,27 @@ android/app/.cxx/
 .gradle/
 *.iml
 
-# Android 머신별 로컬 설정 (SDK 경로 등)
+# Android 자동생성 autolinking 파일
+android/build/generated/
+
+# Android JS 번들 & 번들 빌드 리소스 (build-apk.ps1 생성)
+android/app/src/main/assets/index.android.bundle
+android/app/src/main/res/drawable-mdpi/
+android/app/src/main/res/drawable-xhdpi/
+android/app/src/main/res/drawable-xxhdpi/
+android/app/src/main/res/drawable-xxxhdpi/
+android/app/src/main/res/raw/
+
+# 빌드 버전 자동증가 파일
+android/version.properties
+
+# Android 머신별 로컬 설정 (SDK 경로, 서명 비밀번호 등)
 android/local.properties
+android/gradle.properties
+
+# 릴리즈 서명 키스토어 (절대 커밋 금지)
+android/app/*.keystore
+!android/app/debug.keystore
 
 # iOS 빌드 결과물
 ios/build/
@@ -22,6 +41,10 @@ vendor/bundle/
 
 # Unity 빌드 결과물 (Unity 팀이 별도 관리)
 Unity_PT/
+/unity/
+
+# OAuth 키 — 로컬에서만 관리 (절대 커밋 금지)
+src/constants/oauth.ts
 
 # 기타
 coverage/

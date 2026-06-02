@@ -1,7 +1,7 @@
 export interface AuthUser {
   id:               string;
   name:             string;
-  email:            string;
+  email:            string | null;
   handicap:         number;
   experience_level: 'beginner' | 'experienced';
   avatar_url:       string | null;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet, Dimensions, PixelRatio } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreen } from '../screens/Home';
 import { SwingUploadScreen } from '../screens/SwingUpload';
 import { SwingChatScreen } from '../screens/SwingChat';
@@ -39,11 +40,15 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   );
 }
 
-export const TabNavigator: React.FC = () => (
+export const TabNavigator: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const barHeight = BAR_HEIGHT + insets.bottom;
+
+  return (
   <Tab.Navigator
     screenOptions={{
       headerShown: false,
-      tabBarStyle: tab.bar,
+      tabBarStyle: [tab.bar, { height: barHeight, paddingBottom: insets.bottom }],
       tabBarActiveTintColor: ACTIVE,
       tabBarInactiveTintColor: INACTIVE,
       tabBarLabelStyle: tab.label,
@@ -71,6 +76,7 @@ export const TabNavigator: React.FC = () => (
       options={{
         tabBarLabel: '채팅',
         tabBarIcon: ({ focused }) => <TabIcon emoji="💬" focused={focused} />,
+
       }}
     />
     <Tab.Screen
@@ -82,7 +88,8 @@ export const TabNavigator: React.FC = () => (
       }}
     />
   </Tab.Navigator>
-);
+  );
+};
 
 const tab = StyleSheet.create({
   bar: {

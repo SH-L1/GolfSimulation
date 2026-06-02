@@ -3,6 +3,15 @@ import type { AuthUser, AuthResponse } from '../types/auth';
 
 export type { AuthUser } from '../types/auth';
 
+export async function signUp(name: string, email: string, password: string): Promise<AuthUser> {
+  const data = await apiFetch<AuthResponse>(ENDPOINTS.auth.signup, {
+    method: 'POST',
+    body: JSON.stringify({ name, email, password }),
+  });
+  await setToken(data.access_token);
+  return data.user;
+}
+
 export async function loginEmail(email: string, password: string): Promise<AuthUser> {
   const data = await apiFetch<AuthResponse>(ENDPOINTS.auth.login, {
     method: 'POST',

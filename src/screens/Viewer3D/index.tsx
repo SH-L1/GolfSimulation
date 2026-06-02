@@ -1,48 +1,65 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Component } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  useWindowDimensions,
-  Platform,
+  View, Text, TouchableOpacity, StyleSheet,
+  ActivityIndicator, BackHandler,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import UnityView from '@azesmway/react-native-unity';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { useLandmarks } from '../../hooks/useLandmarks';
 import { PhaseTimeline } from '../../components/module3/PhaseTimeline';
 import { getCurrentSessionId } from '../../store/analysisStore';
+import { PHASE_LABEL } from '../../constants/swing';
+import { getProRecommendations } from '../../api/module3';
+import { API_BASE, getToken } from '../../api/client';
 
+// ── ErrorBoundary ────────────────────────────────────────────────
+class UnityErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { crashed: boolean }
+> {
+  state = { crashed: false };
+  componentDidCatch() { this.setState({ crashed: true }); }
+  render() {
+    if (this.state.crashed) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontSize: 12 }}>Unity 초기화 실패</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ── 상수 ─────────────────────────────────────────────────────────
 const C = {
-  bg:          '#f8faf8',
-  dark:        '#0c0a09',
-  green:       '#006e1c',
-  greenMid:    '#4caf50',
-  surface:     '#ffffff',
-  textPrimary: '#191c1b',
-  textSub:     '#3f4a3c',
-  textMuted:   '#78716c',
-  glass:       'rgba(255,255,255,0.75)',
-  grayChip:    '#e6e9e7',
-  grayLight:   '#f2f4f2',
-  grayBar:     '#e1e3e1',
+  dark:     '#0c0a09',
+  green:    '#006e1c',
+  surface:  '#ffffff',
+  textSub:  '#3f4a3c',
+  textMuted:'#78716c',
+  glass:    'rgba(20,20,20,0.72)',
+  glassBright: 'rgba(255,255,255,0.12)',
+  grayBar:  '#e1e3e1',
+  grayLight:'#f2f4f2',
+  grayChip: '#e6e9e7',
 };
 
-const SPEEDS: { label: string; multiplier: number }[] = [
-  { label: '0.2x', multiplier: 0.2 },
-  { label: '0.5x', multiplier: 0.5 },
-  { label: '1x',   multiplier: 1.0 },
+const SPEEDS = [
+  { label: '0.2x', val: 0.2 },
+  { label: '0.5x', val: 0.5 },
+  { label: '1x',   val: 1.0 },
 ];
 
-const VIEWS = ['정면 뷰', '측면 뷰', '후면 뷰'];
+const CAM_VIEWS   = ['정면', '측면', '후면'];
+const CAM_NAMES   = ['front', 'side', 'back'];
+const OPACITY_STEPS  = [0, 0.5, 1.0];
+const OPACITY_LABELS = ['0%', '50%', '100%'];
 
-// 페이즈 레이블
-const PHASE_LABEL: Record<string, string> = {
-  address: '어드레스',
-  top:     '탑',
-  impact:  '임팩트',
-  finish:  '피니시',
+type ViewMode = 'user' | 'overlay' | 'pro';
+const VIEW_MODE_LABELS: Record<ViewMode, string> = {
+  user: '내 스윙', overlay: '오버레이', pro: '프로',
 };
 
 type Props = {
@@ -50,116 +67,265 @@ type Props = {
   route?: { params?: { sessionId?: string } };
 };
 
+// ── 컴포넌트 ─────────────────────────────────────────────────────
 export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
-  const routeSessionId = route?.params?.sessionId;
-  const sessionId      = routeSessionId ?? getCurrentSessionId();
-
+  const sessionId = route?.params?.sessionId ?? getCurrentSessionId();
+  const { userFrames, loading, error } = useLandmarks(sessionId ?? null);
   const unityRef = useRef<UnityView>(null);
 
-  const { userFrames, loading, error } = useLandmarks(sessionId ?? null);
+  // ── 재생 상태 ──────────────────────────────────────────────────
+  const [unityMounted,       setUnityMounted]       = useState(false);
+  const [unityReady,         setUnityReady]         = useState(false);
+  const pendingSwingUrl      = useRef<string | null>(null);
+  const [playing,            setPlaying]            = useState(false);
+  const [currentFrameIndex,  setCurrent]            = useState(0);
+  const [activeSpeed,        setSpeed]              = useState(2);
+  const [activeCam,          setCam]                = useState(0);
 
-  const [activeSpeed, setSpeed]   = useState(2);
-  const [activeView, setView]     = useState(0);
-  const [playing, setPlaying]     = useState(false);
-  const [currentFrameIndex, setCurrent] = useState(0);
+  // ── 비교 상태 ──────────────────────────────────────────────────
+  const [compMode,   setCompMode]   = useState(false);
+  const [viewMode,   setViewMode]   = useState<ViewMode>('overlay');
+  const [syncOn,     setSyncOn]     = useState(true);
+  const [userOpIdx,  setUserOpIdx]  = useState(2);  // 100%
+  const [proOpIdx,   setProOpIdx]   = useState(1);  // 50%
+  const [proLoaded,  setProLoaded]  = useState(false);
+  const [proLoading, setProLoading] = useState(false);
 
-  const { width: windowWidth } = useWindowDimensions();
 
   const frames = userFrames?.frames ?? [];
   const fps    = userFrames?.fps ?? 30;
   const total  = frames.length;
 
-  // ── 페이즈 목록 (고유 페이즈, 순서 유지) ────────────────────────
-  const phases = React.useMemo(() => {
-    const seen = new Set<string>();
-    const list: string[] = [];
-    frames.forEach(f => { if (!seen.has(f.phase)) { seen.add(f.phase); list.push(f.phase); } });
-    return list;
-  }, [frames]);
 
-  const [activePhaseKey, setActivePhaseKey] = useState<string | null>(null);
-
-  // 재생 중 현재 프레임 phase 변경 시 activePhaseKey 자동 업데이트
+  // ── Unity 마운트 ───────────────────────────────────────────────
   useEffect(() => {
-    const phase = frames[currentFrameIndex]?.phase ?? null;
-    if (phase && phase !== activePhaseKey) { setActivePhaseKey(phase); }
-  }, [currentFrameIndex, frames]);
+    const t = setTimeout(() => setUnityMounted(true), 250);
+    return () => clearTimeout(t);
+  }, []);
 
-  // 프레임 변경 시 Unity에 현재 프레임 데이터 전송
+  // ── Unity 스윙 데이터 전송 헬퍼 ───────────────────────────────
+  const currentFrameRef = useRef(0);
+  const trackWidth      = useRef(0);
+  useEffect(() => { currentFrameRef.current = currentFrameIndex; }, [currentFrameIndex]);
+
+  const sendSwingData = useCallback((url: string) => {
+    if (!unityRef.current) { return; }
+    const trimmed = url.trim();
+    unityRef.current.postMessage('SwingController', 'LoadSwingData', trimmed);
+    console.log('[Unity] LoadSwingData sent:', trimmed);
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    const backSub = BackHandler.addEventListener('hardwareBackPress', () => {
+      navigation?.goBack();
+      return true;
+    });
+
+    unityRef.current?.windowFocusChanged(true);
+
+    // 재진입 시 Unity가 이미 ready 상태면 토큰 새로 발급 후 재전송 (stale 토큰 방지)
+    if (unityReady && userFrames?.final_json_path) {
+      getToken().then(token => {
+        const serverBase = API_BASE.replace(/\/api$/, '');
+        const base = `${serverBase}/${userFrames.final_json_path.replace(/\\/g, '/')}`;
+        const url = token ? `${base}?token=${token}` : base;
+        pendingSwingUrl.current = url;
+        setTimeout(() => sendSwingData(url), 300);
+      });
+    }
+
+    return () => {
+      backSub.remove();
+      setPlaying(false);
+      unityRef.current?.windowFocusChanged(false);
+    };
+  }, [navigation, unityReady, userFrames, sendSwingData]));
+
+  // ── userFrames 로드 시 URL 저장 + 준비되면 즉시 전송 ──────────
   useEffect(() => {
-    const frame = frames[currentFrameIndex];
-    if (!frame || !unityRef.current) { return; }
-    unityRef.current.postMessage(
-      'SwingController',
-      'OnFrameData',
-      JSON.stringify(frame),
-    );
-  }, [currentFrameIndex, frames]);
+    if (!userFrames?.final_json_path) { return; }
+    getToken().then(token => {
+      const serverBase = API_BASE.replace(/\/api$/, '');
+      const base = `${serverBase}/${userFrames.final_json_path.replace(/\\/g, '/')}`;
+      const url = token ? `${base}?token=${token}` : base;
+      pendingSwingUrl.current = url;
+      if (unityReady) { sendSwingData(url); }
+    });
+  }, [userFrames, unityReady, sendSwingData]);
 
-  // 페이즈 클릭 → 해당 페이즈 첫 프레임으로 이동
-  const seekToPhase = useCallback((phaseKey: string) => {
-    const idx = frames.findIndex(f => f.phase === phaseKey);
-    if (idx >= 0) { setCurrent(idx); }
-    setActivePhaseKey(phaseKey);
-  }, [frames]);
+  // ── onUnityMessage: Unity 준비 감지 + 대기 중 URL 전송 ────────
+  const handleUnityMessage = useCallback((msg: string) => {
+    console.log('[Unity] message:', msg);
+    if (!unityReady) {
+      setUnityReady(true);
+      if (pendingSwingUrl.current) {
+        sendSwingData(pendingSwingUrl.current);
+      }
+    }
+  }, [unityReady, sendSwingData]);
 
-  // PhaseTimeline onSeek: frame_index 값 → 배열 인덱스 찾기
-  const handleSeek = useCallback((frameIndex: number) => {
-    const idx = frames.findIndex(f => f.frame_index === frameIndex);
-    if (idx >= 0) { setCurrent(idx); }
-  }, [frames]);
+  // ── 폴백: onUnityMessage 없을 때 5s/10s 후 재시도 ─────────────
+  useEffect(() => {
+    if (!unityMounted) { return; }
+    const t1 = setTimeout(() => {
+      if (!unityReady && pendingSwingUrl.current) {
+        console.log('[Unity] 5s fallback retry');
+        sendSwingData(pendingSwingUrl.current);
+      }
+    }, 5000);
+    const t2 = setTimeout(() => {
+      if (!unityReady && pendingSwingUrl.current) {
+        console.log('[Unity] 10s fallback retry');
+        sendSwingData(pendingSwingUrl.current);
+      }
+    }, 10000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [unityMounted]);
 
-  // ── 재생 루프 ────────────────────────────────────────────────────
+  // ── Unity: 프로 추천 1위 자동 로드 ────────────────────────────
+  useEffect(() => {
+    if (!sessionId) { return; }
+    setProLoading(true);
+    getProRecommendations(sessionId, 1)
+      .then(res => {
+        console.log('[Pro] recommend res:', JSON.stringify(res?.neighbors?.[0]));
+        const top = res.neighbors[0];
+        if (top?.swing_url) {
+          getToken().then(token => {
+            const serverBase = API_BASE.replace(/\/api$/, '');
+            const base = `${serverBase}/${top.swing_url}`;
+            const fullUrl = token ? `${base}&token=${token}` : base;
+            unityRef.current?.postMessage('SwingController', 'LoadReferenceSwingData', fullUrl);
+            console.log('[Unity] LoadReferenceSwingData sent:', fullUrl);
+            setProLoaded(true);
+          });
+        } else {
+          console.log('[Pro] swing_url 없음, neighbors:', res?.neighbors?.length);
+        }
+      })
+      .catch(e => { console.log('[Pro] recommend error:', e?.status, e?.code, e?.message); })
+      .finally(() => setProLoading(false));
+  }, [sessionId]);
+
+  // ── Unity: 프레임 동기화 ───────────────────────────────────────
+  useEffect(() => {
+    if (!unityReady || !unityRef.current || total === 0) { return; }
+    const f = frames[currentFrameIndex]?.frame ?? currentFrameIndex;
+    unityRef.current.postMessage('SwingController', 'SeekFrame', String(f));
+  }, [currentFrameIndex, unityReady]);
+
+  // ── Unity: 비교 모드 전환 (unityReady 후에만) ─────────────────
+  useEffect(() => {
+    if (!unityReady || !unityRef.current) { return; }
+    const u = unityRef.current;
+    if (!compMode) {
+      u.postMessage('SwingController', 'SetUserAvatarVisible',      'true');
+      u.postMessage('SwingController', 'SetReferenceAvatarVisible', 'false');
+      u.postMessage('SwingController', 'SetComparisonOverlayEnabled', 'false');
+      return;
+    }
+    u.postMessage('SwingController', 'SetComparisonOverlayEnabled', 'true');
+    switch (viewMode) {
+      case 'user':
+        u.postMessage('SwingController', 'SetUserAvatarVisible',      'true');
+        u.postMessage('SwingController', 'SetReferenceAvatarVisible', 'false');
+        break;
+      case 'pro':
+        u.postMessage('SwingController', 'SetUserAvatarVisible',      'false');
+        u.postMessage('SwingController', 'SetReferenceAvatarVisible', 'true');
+        break;
+      case 'overlay':
+        u.postMessage('SwingController', 'SetUserAvatarVisible',      'true');
+        u.postMessage('SwingController', 'SetReferenceAvatarVisible', 'true');
+        break;
+    }
+  }, [unityReady, compMode, viewMode]);
+
+  // ── Unity: 싱크 ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!unityReady) { return; }
+    unityRef.current?.postMessage('SwingController', 'SetComparisonSyncEnabled', syncOn ? 'true' : 'false');
+  }, [syncOn, unityReady]);
+
+  // ── Unity: 투명도 ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!unityReady) { return; }
+    unityRef.current?.postMessage('SwingController', 'SetUserAvatarOpacity', String(OPACITY_STEPS[userOpIdx]));
+  }, [userOpIdx, unityReady]);
+
+  useEffect(() => {
+    if (!unityReady) { return; }
+    unityRef.current?.postMessage('SwingController', 'SetReferenceAvatarOpacity', String(OPACITY_STEPS[proOpIdx]));
+  }, [proOpIdx, unityReady]);
+
+  // ── Unity: 배속 ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!unityReady) { return; }
+    unityRef.current?.postMessage('SwingController', 'SetPlaybackSpeed', String(SPEEDS[activeSpeed].val));
+  }, [activeSpeed, unityReady]);
+
+  // ── 재생 루프 ─────────────────────────────────────────────────
   useEffect(() => {
     if (!playing || total === 0) { return; }
-    const intervalMs = (1000 / fps) / SPEEDS[activeSpeed].multiplier;
-    const timer = setInterval(() => {
+    const ms = (1000 / fps) / SPEEDS[activeSpeed].val;
+    const t = setInterval(() => {
       setCurrent(prev => {
         if (prev >= total - 1) { setPlaying(false); return prev; }
         return prev + 1;
       });
-    }, intervalMs);
-    return () => clearInterval(timer);
+    }, ms);
+    return () => clearInterval(t);
   }, [playing, total, fps, activeSpeed]);
 
-  // ── 현재 프레임 ──────────────────────────────────────────────────
-  const userFrame = frames[currentFrameIndex] ?? null;
+  // playing 상태에 따라 Pause/Play 전송 — unityMounted 이후 항상 동작
+  useEffect(() => {
+    if (!unityMounted) { return; }
+    if (playing) {
+      unityRef.current?.postMessage('SwingController', 'Play', '');
+    } else {
+      unityRef.current?.postMessage('SwingController', 'Pause', '');
+    }
+  }, [playing, unityMounted]);
 
-  // 진행률 (0~1)
-  const progress = total > 1 ? currentFrameIndex / (total - 1) : 0;
+  // ── 핸들러 ───────────────────────────────────────────────────
+const handleSeek = useCallback((frameNum: number) => {
+    const idx = frames.findIndex(f => f.frame === frameNum);
+    if (idx >= 0) { setCurrent(idx); }
+  }, [frames]);
 
-  // 타임스탬프 표시
-  const currentMs  = userFrame?.timestamp_ms ?? 0;
-  const totalMs    = frames.at(-1)?.timestamp_ms ?? 0;
-  const fmtMs = (ms: number) => {
-    const s = Math.floor(ms / 1000);
-    const m = String(Math.floor(s / 60)).padStart(1, '0');
-    const sec = String(s % 60).padStart(2, '0');
-    return `${m}:${sec}`;
+  const cycleCam = () => {
+    const next = (activeCam + 1) % CAM_VIEWS.length;
+    setCam(next);
+    unityRef.current?.postMessage('SwingController', 'SetCameraView', CAM_NAMES[next]);
   };
 
+  // ── 진행률 / 타임 ─────────────────────────────────────────────
+  const progress  = total > 1 ? currentFrameIndex / (total - 1) : 0;
+  const currentMs = (frames[currentFrameIndex]?.timestamp ?? 0) * 1000;
+  const totalMs   = (frames.at(-1)?.timestamp ?? 0) * 1000;
+  const fmtMs = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+
+  // ── 렌더 ────────────────────────────────────────────────────
   return (
     <View style={s.root}>
       <AppHeader navigation={navigation} />
 
-      {/* 3D 뷰포트 */}
       <View style={s.viewport}>
-
-        {/* Unity 3D 뷰 (전체 viewport 배경) */}
-        {Platform.OS === 'android' && (
-          <UnityView
-            ref={unityRef}
-            style={StyleSheet.absoluteFill}
-            androidKeepPlayerMounted
-            fullScreen={false}
-          />
+        {/* Unity */}
+        {unityMounted && (
+          <UnityErrorBoundary>
+            <UnityView ref={unityRef} style={StyleSheet.absoluteFill} onUnityMessage={handleUnityMessage} {...{ androidKeepPlayerMounted: true } as any} />
+          </UnityErrorBoundary>
         )}
 
-        {/* 로딩 / 에러 오버레이 */}
+        {/* 로딩/에러 */}
         {loading && (
           <View style={s.centerState}>
             <ActivityIndicator color="#fff" size="large" />
-            <Text style={s.centerText}>랜드마크 로딩 중...</Text>
+            <Text style={s.centerText}>스윙 데이터 로딩 중...</Text>
           </View>
         )}
         {!loading && error && (
@@ -168,37 +334,115 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* 좌측 뷰 컨트롤 패널 */}
-        <View style={s.leftPanel}>
-          {[{ icon: '🎥', view: 0 }, { icon: '⬛', view: 1 }, { icon: '🔲', view: 2 }].map(btn => (
-            <TouchableOpacity
-              key={btn.view}
-              style={[s.panelBtn, activeView === btn.view && s.panelBtnActive]}
-              onPress={() => setView(btn.view)}>
-              <Text style={s.panelBtnIcon}>{btn.icon}</Text>
+        {/* ── 좌측 상단: 카메라 ── */}
+        <TouchableOpacity style={s.camBtn} onPress={cycleCam}>
+          <Text style={s.camIcon}>📷</Text>
+          <Text style={s.camLabel}>{CAM_VIEWS[activeCam]}</Text>
+        </TouchableOpacity>
+
+        {/* ── 우측 상단: 페이즈 + 비교 토글 ── */}
+        <View style={s.topRight}>
+          <View style={s.hudPhaseBox}>
+            <Text style={s.hudSub}>페이즈</Text>
+            <Text style={s.hudPhase}>
+              {frames[currentFrameIndex]?.phase
+                ? (PHASE_LABEL[frames[currentFrameIndex].phase!] ?? frames[currentFrameIndex].phase)
+                : '—'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[s.compToggleBtn, compMode && s.compToggleBtnOn]}
+            onPress={() => setCompMode(v => !v)}
+            disabled={!proLoaded}>
+            {proLoading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={s.compToggleText}>
+                  {proLoaded ? (compMode ? '비교 ON' : '비교') : '추천 없음'}
+                </Text>
+            }
+          </TouchableOpacity>
+        </View>
+
+        {/* ── 비교 모드 패널 ── */}
+        {compMode && (
+          <View style={s.compPanel}>
+            {/* 뷰 모드 */}
+            <View style={s.compRow}>
+              {(['user', 'overlay', 'pro'] as ViewMode[]).map(mode => (
+                <TouchableOpacity
+                  key={mode}
+                  style={[s.viewChip, viewMode === mode && s.viewChipActive]}
+                  onPress={() => setViewMode(mode)}>
+                  <Text style={[s.viewChipText, viewMode === mode && s.viewChipTextActive]}>
+                    {VIEW_MODE_LABELS[mode]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* 싱크 */}
+            <TouchableOpacity style={s.syncRow} onPress={() => setSyncOn(v => !v)}>
+              <Text style={s.syncLabel}>싱크</Text>
+              <View style={[s.toggleTrack, syncOn && s.toggleTrackOn]}>
+                <View style={[s.toggleThumb, syncOn && s.toggleThumbOn]} />
+              </View>
             </TouchableOpacity>
-          ))}
-        </View>
 
-        {/* 뷰 레이블 */}
-        <View style={s.viewLabel}>
-          <Text style={s.viewLabelText}>{VIEWS[activeView]}</Text>
-        </View>
+            {/* 투명도 — 내 스윙 */}
+            {viewMode !== 'pro' && (
+              <View style={s.opacityRow}>
+                <Text style={s.opacityLabel}>내 스윙</Text>
+                <View style={s.opacityBtns}>
+                  {OPACITY_LABELS.map((lbl, i) => (
+                    <TouchableOpacity
+                      key={lbl}
+                      style={[s.opacityBtn, userOpIdx === i && s.opacityBtnActive]}
+                      onPress={() => setUserOpIdx(i)}>
+                      <Text style={[s.opacityBtnText, userOpIdx === i && s.opacityBtnTextActive]}>{lbl}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
 
-        {/* 우측 HUD */}
-        <View style={s.hudPanel}>
-          <Text style={s.hudSub}>현재 페이즈</Text>
-          <Text style={s.hudPhase}>
-            {userFrame ? (PHASE_LABEL[userFrame.phase] ?? userFrame.phase) : '—'}
-          </Text>
-        </View>
+            {/* 투명도 — 프로 */}
+            {viewMode !== 'user' && (
+              <View style={s.opacityRow}>
+                <Text style={s.opacityLabel}>프로</Text>
+                <View style={s.opacityBtns}>
+                  {OPACITY_LABELS.map((lbl, i) => (
+                    <TouchableOpacity
+                      key={lbl}
+                      style={[s.opacityBtn, proOpIdx === i && s.opacityBtnActive]}
+                      onPress={() => setProOpIdx(i)}>
+                      <Text style={[s.opacityBtnText, proOpIdx === i && s.opacityBtnTextActive]}>{lbl}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
-        {/* 하단 스크러버 */}
-        <View style={[s.scrubber, { width: windowWidth * 0.92, left: windowWidth * 0.04 }]}>
-          {/* 타임라인 바 */}
+        {/* ── 하단 스크러버 ── */}
+        <View style={s.scrubber}>
+          {/* 진행 바 — 터치로 프레임 이동 */}
           <View style={s.timeRow}>
             <Text style={s.timeText}>{fmtMs(currentMs)}</Text>
-            <View style={s.trackOuter}>
+            <View
+              style={s.trackOuter}
+              onLayout={e => { trackWidth.current = e.nativeEvent.layout.width; }}
+            >
+              <TouchableOpacity
+                activeOpacity={1}
+                style={StyleSheet.absoluteFill}
+                onPress={e => {
+                  if (total === 0 || !trackWidth.current) { return; }
+                  const ratio = e.nativeEvent.locationX / trackWidth.current;
+                  const idx = Math.round(Math.max(0, Math.min(1, ratio)) * (total - 1));
+                  setCurrent(idx);
+                }}
+              />
               <View style={s.trackBg} />
               <View style={[s.trackFill, { width: `${progress * 100}%` as any }]} />
               <View style={[s.trackThumb, { left: `${progress * 100}%` as any }]} />
@@ -206,205 +450,177 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
             <Text style={s.timeText}>{fmtMs(totalMs)}</Text>
           </View>
 
-          {/* PhaseTimeline (프레임이 있을 때만) */}
+          {/* 페이즈 타임라인 — 진행바 트랙 너비에 맞춤 (timeText 38px 제외) */}
           {frames.length > 0 && (
-            <PhaseTimeline
-              frames={frames}
-              currentIndex={currentFrameIndex}
-              onSeek={handleSeek}
-            />
+            <View style={{ marginLeft: 38, marginRight: 38 }}>
+              <PhaseTimeline frames={frames} currentIndex={currentFrameIndex} onSeek={handleSeek} />
+            </View>
           )}
 
-          {/* 페이즈 점프 버튼 + 재생 */}
+          {/* 재생 + 배속 한 줄 */}
           <View style={s.controlRow}>
-            <View style={s.phaseChips}>
-              {phases.map(phaseKey => (
-                <TouchableOpacity
-                  key={phaseKey}
-                  style={[s.phaseChip, activePhaseKey === phaseKey && s.phaseChipActive]}
-                  onPress={() => seekToPhase(phaseKey)}>
-                  <Text style={[s.phaseChipText, activePhaseKey === phaseKey && s.phaseChipTextActive]}>
-                    {PHASE_LABEL[phaseKey] ?? phaseKey}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
             <TouchableOpacity
               style={[s.playBtn, total === 0 && { opacity: 0.4 }]}
-              onPress={() => setPlaying(v => !v)}
+              onPress={() => {
+                if (!playing && currentFrameIndex >= total - 1) { setCurrent(0); }
+                setPlaying(v => !v);
+              }}
               disabled={total === 0}>
               <Text style={s.playIcon}>{playing ? '⏸' : '▶'}</Text>
             </TouchableOpacity>
-          </View>
-
-          {/* 배속 */}
-          <View style={s.speedRow}>
-            {SPEEDS.map((sp, i) => (
-              <TouchableOpacity
-                key={sp.label}
-                style={[s.speedBtn, activeSpeed === i && s.speedBtnActive]}
-                onPress={() => setSpeed(i)}>
-                <Text style={[s.speedText, activeSpeed === i && s.speedTextActive]}>{sp.label}</Text>
-              </TouchableOpacity>
-            ))}
+            <View style={s.speedRow}>
+              {SPEEDS.map((sp, i) => (
+                <TouchableOpacity
+                  key={sp.label}
+                  style={[s.speedBtn, activeSpeed === i && s.speedBtnActive]}
+                  onPress={() => setSpeed(i)}>
+                  <Text style={[s.speedText, activeSpeed === i && s.speedTextActive]}>{sp.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
       </View>
-
-      {/* FAB */}
-      <TouchableOpacity
-        style={s.fab}
-        onPress={() => navigation?.navigate('SwingChat', { sessionId })}>
-        <Text style={s.fabIcon}>💬</Text>
-      </TouchableOpacity>
     </View>
   );
 };
 
+// ── 스타일 ───────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.dark },
+  root:     { flex: 1, backgroundColor: C.dark },
+  viewport: { flex: 1, backgroundColor: C.dark, overflow: 'hidden' },
 
-  viewport: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: C.dark,
-    overflow: 'hidden',
-  },
-  // 로딩/에러 상태
   centerState: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'center', alignItems: 'center', gap: 12,
   },
   centerText: { fontSize: 14, color: '#fff', fontWeight: '600' },
 
-  // 좌측 패널
-  leftPanel: {
-    position: 'absolute', top: 20, left: 20,
-    backgroundColor: C.glass,
-    borderRadius: 16, padding: 6, gap: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15, shadowRadius: 16, elevation: 6,
+  // 카메라 버튼 — Unity 자체 UI 덮기 위해 크게
+  camBtn: {
+    position: 'absolute', top: 0, left: 0,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderBottomRightRadius: 18,
+    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    minWidth: 120,
   },
-  panelBtn: {
-    width: 48, height: 48, borderRadius: 48,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  panelBtnActive: { backgroundColor: C.green },
-  panelBtnIcon: { fontSize: 18 },
+  camIcon:  { fontSize: 20 },
+  camLabel: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
-  // 뷰 레이블
-  viewLabel: {
-    position: 'absolute', top: 172, left: 20,
-    backgroundColor: C.glass,
-    borderRadius: 999,
-    paddingHorizontal: 16, paddingVertical: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
+  // 우측 상단
+  topRight: {
+    position: 'absolute', top: 16, right: 16,
+    alignItems: 'flex-end', gap: 8,
   },
-  viewLabelText: { fontSize: 11, fontWeight: '700', color: C.textSub, letterSpacing: 1, textTransform: 'uppercase' },
+  hudPhaseBox: {
+    backgroundColor: C.glass,
+    borderRadius: 14, padding: 10, alignItems: 'flex-end',
+    borderWidth: 1, borderColor: C.glassBright,
+  },
+  hudSub:   { fontSize: 10, fontWeight: '700', color: C.green, textTransform: 'uppercase' },
+  hudPhase: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  // HUD 패널
-  hudPanel: {
-    position: 'absolute', top: 20, right: 20,
+  compToggleBtn: {
     backgroundColor: C.glass,
-    borderRadius: 16, padding: 14, minWidth: 160, gap: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15, shadowRadius: 16, elevation: 6,
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10,
+    borderWidth: 1, borderColor: C.glassBright,
+    minWidth: 72, alignItems: 'center',
   },
-  hudRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  hudLabel: { fontSize: 12, color: C.textSub },
-  toggle: {
-    width: 36, height: 20, borderRadius: 10,
-    backgroundColor: C.grayBar,
+  compToggleBtnOn: { backgroundColor: C.green, borderColor: C.green },
+  compToggleText:  { fontSize: 13, fontWeight: '700', color: '#fff' },
+
+  // 비교 패널
+  compPanel: {
+    position: 'absolute', right: 16, top: 160,
+    backgroundColor: C.glass,
+    borderRadius: 16, padding: 12, gap: 10, minWidth: 180,
+    borderWidth: 1, borderColor: C.glassBright,
+  },
+  compRow:   { flexDirection: 'row', gap: 6 },
+  viewChip:  {
+    flex: 1, paddingVertical: 6, borderRadius: 8,
+    backgroundColor: C.glassBright, alignItems: 'center',
+  },
+  viewChipActive:     { backgroundColor: C.green },
+  viewChipText:       { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)' },
+  viewChipTextActive: { color: '#fff' },
+
+  syncRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  syncLabel: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  toggleTrack: {
+    width: 38, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center', paddingHorizontal: 2,
   },
-  toggleOn: { backgroundColor: C.greenMid },
-  toggleThumb: {
-    width: 16, height: 16, borderRadius: 8,
-    backgroundColor: C.surface,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1, shadowRadius: 2, elevation: 1,
-  },
-  toggleThumbOn: { alignSelf: 'flex-end' },
-  hudDivider: { height: 1, backgroundColor: 'rgba(190,202,185,0.3)' },
-  hudSub:  { fontSize: 11, fontWeight: '700', color: C.green, textTransform: 'uppercase', letterSpacing: -0.5 },
-  hudPhase: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
+  toggleTrackOn:  { backgroundColor: C.green },
+  toggleThumb:    { width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff' },
+  toggleThumbOn:  { alignSelf: 'flex-end' },
 
-  // 스크러버
-  scrubber: {
-    position: 'absolute', bottom: 96,
-    backgroundColor: C.glass,
-    borderRadius: 24, padding: 16, gap: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.2, shadowRadius: 30, elevation: 10,
+  opacityRow:  { gap: 4 },
+  opacityLabel: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
+  opacityBtns:  { flexDirection: 'row', gap: 4 },
+  opacityBtn:   {
+    flex: 1, paddingVertical: 5, borderRadius: 6,
+    backgroundColor: C.glassBright, alignItems: 'center',
   },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  timeText: { fontSize: 10, fontWeight: '700', color: C.textMuted, width: 28 },
-  trackOuter: { flex: 1, height: 24, justifyContent: 'center', position: 'relative' },
-  trackBg: {
+  opacityBtnActive:     { backgroundColor: '#fff' },
+  opacityBtnText:       { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.6)' },
+  opacityBtnTextActive: { color: C.dark },
+
+  // 스크러버 — 하단 고정, 전체 너비, 컴팩트
+  scrubber: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(255,255,255,0.93)',
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20,
+    gap: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12, shadowRadius: 12, elevation: 10,
+  },
+  timeRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  timeText:  { fontSize: 10, fontWeight: '700', color: C.textMuted, width: 28 },
+  trackOuter:{ flex: 1, height: 24, justifyContent: 'center', position: 'relative' },
+  trackBg:   {
     height: 6, backgroundColor: C.grayBar,
     borderRadius: 999, position: 'absolute', left: 0, right: 0,
   },
-  trackFill: {
-    height: 6, backgroundColor: C.green,
-    borderRadius: 999, position: 'absolute', left: 0,
-  },
-  trackThumb: {
-    width: 16, height: 16, borderRadius: 8,
-    backgroundColor: C.green,
+  trackFill: { height: 6, backgroundColor: C.green, borderRadius: 999, position: 'absolute', left: 0 },
+  trackThumb:{
+    width: 16, height: 16, borderRadius: 8, backgroundColor: C.green,
     position: 'absolute', top: 4, marginLeft: -8,
     shadowColor: C.green, shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+    shadowOpacity: 0.4, shadowRadius: 6, elevation: 4,
   },
 
-  // 컨트롤 행
-  controlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  phaseChips: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
-  phaseChip: {
+  controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  phaseChips: { flexDirection: 'row', gap: 4, flexWrap: 'wrap', flex: 1 },
+  phaseChip:  {
     backgroundColor: C.grayChip, borderRadius: 999,
     paddingHorizontal: 10, paddingVertical: 5,
   },
-  phaseChipActive: { backgroundColor: C.green },
-  phaseChipText: { fontSize: 10, fontWeight: '700', color: C.textSub },
-  phaseChipTextActive: { color: C.surface },
+  phaseChipActive:     { backgroundColor: C.green },
+  phaseChipText:       { fontSize: 10, fontWeight: '700', color: C.textSub },
+  phaseChipTextActive: { color: '#fff' },
+
   playBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: C.green,
-    justifyContent: 'center', alignItems: 'center',
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: C.green, justifyContent: 'center', alignItems: 'center',
     shadowColor: C.green, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
-    marginLeft: 8,
   },
-  playIcon: { fontSize: 16, color: C.surface, marginLeft: 2 },
+  playIcon: { fontSize: 16, color: '#fff', marginLeft: 2 },
 
-  // 배속
   speedRow: {
     flexDirection: 'row', gap: 4,
-    backgroundColor: C.grayLight,
-    borderRadius: 999, padding: 4,
-    alignSelf: 'flex-start',
+    backgroundColor: '#f2f4f2', borderRadius: 999, padding: 4, alignSelf: 'flex-start',
   },
-  speedBtn: {
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 6,
-  },
+  speedBtn:       { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   speedBtnActive: {
-    backgroundColor: C.surface,
+    backgroundColor: '#fff',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
   },
-  speedText: { fontSize: 10, fontWeight: '700', color: C.textSub },
+  speedText:       { fontSize: 10, fontWeight: '700', color: C.textSub },
   speedTextActive: { color: C.green },
-
-  // FAB
-  fab: {
-    position: 'absolute', right: 22, bottom: 112,
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: C.green,
-    justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2, shadowRadius: 16, elevation: 8,
-    zIndex: 20,
-  },
-  fabIcon: { fontSize: 22 },
 });

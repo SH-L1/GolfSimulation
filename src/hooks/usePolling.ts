@@ -38,7 +38,7 @@ export function usePolling(jobId: string | null) {
         setStatus(data.status);
 
         if (data.status === 'done') {
-          setSessionId(data.session_id ?? null);
+          setSessionId(data.sessionid ?? null);
         } else if (data.status === 'error') {
           setError(data.message ?? '분석 중 오류가 발생했습니다.');
         } else {

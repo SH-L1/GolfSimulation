@@ -1,8 +1,8 @@
 export interface ChatStreamRequest {
-  message:             string;
-  session_id:          string | null;
-  current_session_id?: string | null;
-  experience_level:    'beginner' | 'experienced';
+  message:          string;
+  swingSessionId?:  string | null;
+  chatSessionId?:   string | null;
+  experience_level: 'beginner' | 'experienced';
 }
 
 export interface ChatMessage {
@@ -13,9 +13,9 @@ export interface ChatMessage {
 }
 
 export interface ChatHistoryResponse {
-  chat_session_id:  string;
-  swing_session_id: string;
-  created_at:       string;
+  chat_session_id:  string | null;
+  swing_session_id: string | null;
+  created_at:       string | null;
   messages:         ChatMessage[];
 }
 
@@ -26,9 +26,8 @@ export interface SSETokenEvent {
 }
 
 export interface SSEDoneEvent {
-  type:            'done';
-  chat_session_id: string;
-  message_id:      string;
+  type:          'done';
+  chatSessionId: string;
 }
 
 export interface SSEErrorEvent {

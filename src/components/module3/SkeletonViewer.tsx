@@ -2,21 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { PoseFrame } from '../../types/module3';
 
-// 연결할 관절 쌍 (2D 오버레이용)
-const CONNECTIONS: [string, string][] = [
-  ['left_shoulder',  'right_shoulder'],
-  ['left_shoulder',  'left_elbow'],
-  ['left_elbow',     'left_wrist'],
-  ['right_shoulder', 'right_elbow'],
-  ['right_elbow',    'right_wrist'],
-  ['left_shoulder',  'left_hip'],
-  ['right_shoulder', 'right_hip'],
-  ['left_hip',       'right_hip'],
-  ['left_hip',       'left_knee'],
-  ['left_knee',      'left_ankle'],
-  ['right_hip',      'right_knee'],
-  ['right_knee',     'right_ankle'],
-];
 
 interface Props {
   frame:       PoseFrame | null;
@@ -39,11 +24,11 @@ export const SkeletonViewer: React.FC<Props> = ({ frame, width, height, color = 
   return (
     <View style={{ width, height, position: 'relative' }}>
       {/* 관절 점 */}
-      {Object.entries(lm).map(([name, point]) => {
+      {lm.map((point, idx) => {
         if (point.visibility < 0.5) { return null; }
         return (
           <View
-            key={name}
+            key={idx}
             style={[
               s.joint,
               {
@@ -56,10 +41,10 @@ export const SkeletonViewer: React.FC<Props> = ({ frame, width, height, color = 
         );
       })}
 
-      {/* 연결선 (SVG 없이 간략히 — 실제 구현 시 react-native-svg 사용 권장) */}
-      {CONNECTIONS.map(([a, b]) => {
-        const pa = lm[a];
-        const pb = lm[b];
+      {/* 연결선 — 배열 기반으로 변경 필요, 현재 비활성 */}
+      {([] as [string, string][]).map(([a, b]) => {
+        const pa = lm[Number(a)];
+        const pb = lm[Number(b)];
         if (!pa || !pb || pa.visibility < 0.5 || pb.visibility < 0.5) { return null; }
         const x1 = pa.x * width;
         const y1 = pa.y * height;

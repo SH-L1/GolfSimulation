@@ -4,23 +4,7 @@ import type { AnalysisResult, SwingPhase } from '../../types/module1';
 import { ScoreCard } from '../common/ScoreCard';
 import { MetricRow } from '../common/MetricRow';
 import { RecommendationCard } from './RecommendationCard';
-
-const PHASE_LABEL: Record<SwingPhase, string> = {
-  address: '어드레스',
-  top:     '백스윙',
-  impact:  '임팩트',
-  finish:  '피니시',
-};
-
-const METRIC_LABEL: Record<string, string> = {
-  STANCE_RATIO:  'Stance Ratio',
-  SHOULDER_ROT:  'Shoulder Rotation',
-  X_FACTOR:      'X-Factor',
-  BACKSWING_MAX: 'Backswing Max',
-  HIP_ROTATION:  'Hip Rotation',
-  WRIST_ANGLE:   'Wrist Angle',
-  SPINE_TILT:    'Spine Tilt',
-};
+import { PHASE_LABEL } from '../../constants/swing';
 
 interface Props { result: AnalysisResult }
 
@@ -45,7 +29,7 @@ export const SwingFeedbackPanel: React.FC<Props> = ({ result }) => (
     <View style={s.section}>
       <Text style={s.sectionTitle}>상세 지표</Text>
       {Object.entries(result.metrics).map(([id, metric]) => (
-        <MetricRow key={id} label={METRIC_LABEL[id] ?? id} metric={metric} />
+        <MetricRow key={id} label={id} metric={metric} />
       ))}
     </View>
 

@@ -14,8 +14,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { login as kakaoLogin } from '@react-native-kakao/user';
 import { STORAGE_KEY_SETUP_DONE } from '../LevelSetting';
-import { loginEmail } from '../../api/auth';
+import { useAuth } from '../../context/AuthContext';
 import { ApiError } from '../../api/client';
 
 const C = {
@@ -61,11 +62,13 @@ const SocialBtn: React.FC<{
 type Props = { navigation?: any };
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
+  const { login, loginWithKakao } = useAuth();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw]     = useState(false);
   const [mode, setMode]         = useState<'login' | 'email'>('login');
   const [authLoading, setAuthLoading] = useState(false);
+
 
   const goAfterLogin = async () => {
     const done = await AsyncStorage.getItem(STORAGE_KEY_SETUP_DONE);
@@ -80,7 +83,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     if (!email || !password) { return; }
     setAuthLoading(true);
     try {
-      await loginEmail(email, password);
+      await login(email, password);
       await goAfterLogin();
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : '로그인 중 오류가 발생했습니다.';
@@ -90,9 +93,22 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  // 소셜 로그인: OAuth SDK 토큰 수령 후 실제 연동 예정
-  const handleKakao  = () => { void goAfterLogin(); };
-  const handleGoogle = () => { void goAfterLogin(); };
+  const handleKakao = async () => {
+    setAuthLoading(true);
+    try {
+      const result = await kakaoLogin();
+      await loginWithKakao(result.accessToken);
+      await goAfterLogin();
+    } catch (e) {
+      Alert.alert('카카오 로그인 실패', e instanceof ApiError ? e.message : '다시 시도해 주세요.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    Alert.alert('준비 중', 'Google 로그인은 곧 지원될 예정입니다.');
+  };
   const handleSignUp = () => navigation?.navigate('SignUp');
 
   return (

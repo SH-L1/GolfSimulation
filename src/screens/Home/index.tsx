@@ -4,19 +4,19 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BottomSpacer } from '../../components/ui/BottomSpacer';
+import { useFabBottom } from '../../hooks/useFabBottom';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { useAuth } from '../../hooks/useAuth';
-import { getSessions } from '../../api/module1';
+import { getSessions, getSession } from '../../api/module1';
 import type { SessionSummary } from '../../api/module1';
-import { PLACEHOLDER_URI } from '../../assets';
-
-const imgCaddyCharacter = PLACEHOLDER_URI;
+import { VIEW_LABEL, CLUB_LABEL } from '../../constants/swing';
 
 const C = {
   bg:            '#f8faf8',
@@ -24,7 +24,6 @@ const C = {
   green:         '#006e1c',
   greenMid:      '#4caf50',
   greenLight:    'rgba(76,175,80,0.10)',
-  greenPill:     '#94f990',
   blue:          '#0061a4',
   blueLight:     'rgba(51,160,253,0.10)',
   bluePill:      '#d1e4ff',
@@ -32,7 +31,6 @@ const C = {
   textSecondary: '#3f4a3c',
   textMuted:     '#78716c',
   textFaint:     '#a8a29e',
-  shadow:        'rgba(0,0,0,0.05)',
 };
 
 const LEVEL_LABEL: Record<string, string> = {
@@ -41,16 +39,35 @@ const LEVEL_LABEL: Record<string, string> = {
   advanced:     '고급',
 };
 
-const VIEW_LABEL: Record<string, string> = {
-  dtl:     'DTL',
-  face_on: 'Face On',
-  other:   '기타',
+const LEVEL_TIPS: Record<string, string[]> = {
+  beginner: [
+    '그립을 너무 꽉 쥐면 손목이 굳어 스윙이 막힙니다. 엄지와 검지 사이에 여유를 두고 가볍게 잡아보세요.',
+    '공을 맞추려 하지 말고 스윙 궤도를 따라가세요. 공은 자연스럽게 맞습니다.',
+    '백스윙 시 왼 어깨가 턱 아래까지 오도록 충분히 회전해보세요.',
+    '발 너비를 어깨 넓이로 맞추면 균형 잡힌 스윙의 기초가 됩니다.',
+    '임팩트 후 팔로스루까지 클럽헤드가 목표 방향을 향하도록 해보세요.',
+  ],
+  intermediate: [
+    '다운스윙 시 오른쪽 팔꿈치를 몸 옆에 붙이면 인사이드-아웃 궤도가 자연스럽게 만들어집니다.',
+    '임팩트 순간 하체가 먼저 회전해야 합니다. 하체-몸통-팔 순서를 의식하며 스윙해보세요.',
+    '백스윙 탑에서 잠깐 멈추는 느낌을 가져보세요. 서두르면 타이밍이 흐트러집니다.',
+    '체중 이동을 의식하세요. 백스윙 시 오른발, 임팩트 후 왼발에 체중이 실려야 합니다.',
+    '피니시 자세를 3초간 유지하는 연습을 해보세요. 밸런스가 좋아집니다.',
+  ],
+  advanced: [
+    '그린 주변 어프로치에서 볼 위치를 오른발 쪽으로 한 볼 이동하면 뒤땅 없이 칩샷을 칠 수 있습니다.',
+    '볼 포지션과 스탠스 폭을 클럽별로 조정하세요. 드라이버는 왼발 뒤꿈치 안쪽, 아이언은 중앙입니다.',
+    '바람이 강할 때는 스윙을 75% 강도로 줄이고 공을 낮게 치는 펀치샷을 활용해보세요.',
+    '그린에서 퍼팅 라인 읽기 전 홀 뒤편에서도 경사를 확인하세요. 고점에서 더 잘 보입니다.',
+    '페어웨이우드 대신 하이브리드를 활용하면 러프에서의 탈출이 훨씬 수월해집니다.',
+  ],
 };
 
-const CLUB_LABEL: Record<string, string> = {
-  driver: 'Driver',
-  iron:   'Iron',
-};
+function getStaticTip(level: string): string {
+  const tips = LEVEL_TIPS[level] ?? LEVEL_TIPS.beginner;
+  return tips[new Date().getDay() % tips.length];
+}
+
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -64,22 +81,36 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [latestSession, setLatestSession] = useState<SessionSummary | null>(null);
   const [totalSessions, setTotalSessions] = useState<number>(0);
   const [sessionLoading, setSessionLoading] = useState(true);
+  const [aiTip, setAiTip] = useState<{ title: string; body: string } | null>(null);
+
+  const expLevel   = user?.experience_level ?? 'beginner';
+  const levelLabel = LEVEL_LABEL[expLevel] ?? '초보';
+  const fabBottom  = useFabBottom(true);
 
   useFocusEffect(
     useCallback(() => {
       setSessionLoading(true);
+      setAiTip(null);
       getSessions(1, 1)
         .then(res => {
-          setLatestSession(res.sessions[0] ?? null);
+          const session = res.sessions[0] ?? null;
+          setLatestSession(session);
           setTotalSessions(res.total);
+          if (session) {
+            getSession(session.sessionId)
+              .then(result => {
+                const rec = result.recommendations[0];
+                if (rec?.title && rec?.body) {
+                  setAiTip({ title: rec.title, body: rec.body });
+                }
+              })
+              .catch(() => {});
+          }
         })
         .catch(() => {})
         .finally(() => setSessionLoading(false));
     }, []),
   );
-
-  const levelLabel  = LEVEL_LABEL[user?.experience_level ?? 'beginner'] ?? '초보';
-  const scoreProgress = ((latestSession?.overallScore ?? 0) / 100);
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -90,27 +121,13 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}>
 
-        {/* 히어로 인사 카드 */}
-        <View style={s.heroCard}>
-          <View style={s.heroText}>
-            <Text style={s.heroGreeting}>안녕하세요, {user?.name ?? '...'}</Text>
-            <Text style={s.heroSub}>오늘 더 멋진 스윙을 할 준비가{'\n'}되셨나요?</Text>
-            <View style={s.levelBadge}>
-              <Text style={s.levelText} maxFontSizeMultiplier={1.2}>{levelLabel}</Text>
-            </View>
-          </View>
-          <View style={s.heroCharacterWrap}>
-            <View style={s.heroCharacterBg} />
-            <Image source={{ uri: imgCaddyCharacter }} style={s.heroCharacter} />
-          </View>
-        </View>
 
         {/* 퀵 액션 그리드 */}
         <View style={s.quickGrid}>
           <TouchableOpacity
             style={s.btnRecord}
             activeOpacity={0.85}
-            onPress={() => navigation?.navigate('SwingUpload')}>
+            onPress={() => navigation?.navigate('SwingUpload', { newSession: Date.now() })}>
             <View style={s.btnRecordIcon}>
               <Text style={s.btnRecordIconText}>🎥</Text>
             </View>
@@ -122,7 +139,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity
               style={s.btnSmall}
               activeOpacity={0.85}
-              onPress={() => navigation?.navigate('SwingUpload')}>
+              onPress={() => navigation?.navigate('SwingUpload', { newSession: Date.now() })}>
               <View style={[s.btnSmallIcon, { backgroundColor: C.bluePill }]}>
                 <Text>⬆️</Text>
               </View>
@@ -132,7 +149,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity
               style={s.btnSmall}
               activeOpacity={0.85}
-              onPress={() => navigation?.navigate('SwingChat')}>
+              onPress={() => {
+                if (!latestSession) { Alert.alert('스윙 기록 없음', '먼저 스윙을 기록해 주세요.'); return; }
+                navigation?.getParent()?.navigate('SwingChat', { sessionId: latestSession.sessionId });
+              }}>
               <View style={[s.btnSmallIcon, { backgroundColor: '#ffd9e2' }]}>
                 <Text>🤖</Text>
               </View>
@@ -146,7 +166,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View style={s.sectionHeader}>
             <Text style={s.sectionTitle}>최근 스윙</Text>
             {latestSession && (
-              <Text style={s.sectionDate}>{formatDate(latestSession.analyzedAt)}</Text>
+              <Text style={s.sectionDate}>{latestSession.analyzedAt ? formatDate(latestSession.analyzedAt) : ''}</Text>
             )}
           </View>
 
@@ -159,31 +179,21 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
               style={s.swingCard}
               activeOpacity={0.8}
               onPress={() => navigation?.navigate('SwingFeedback', { sessionId: latestSession.sessionId })}>
-              <View style={s.swingThumb}>
-                <Image
-                  source={{ uri: latestSession.thumbnailUrl ?? PLACEHOLDER_URI }}
-                  style={s.swingThumbImg}
-                />
-                <View style={s.scoreBadge}>
-                  <Text style={s.scoreBadgeLabel} maxFontSizeMultiplier={1.2}>SCORE</Text>
-                  <Text style={s.scoreBadgeValue} maxFontSizeMultiplier={1.2}>{latestSession.overallScore}</Text>
-                </View>
-                <View style={s.thumbTags}>
-                  <View style={s.thumbTag}>
-                    <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>
-                      {CLUB_LABEL[latestSession.clubType] ?? latestSession.clubType}
-                    </Text>
-                  </View>
-                  <View style={s.thumbTag}>
-                    <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>
-                      {VIEW_LABEL[latestSession.viewType] ?? latestSession.viewType}
-                    </Text>
-                  </View>
-                </View>
-              </View>
               <View style={s.swingAnalysis}>
                 <View style={s.analysisBullet} />
                 <View style={{ flex: 1 }}>
+                  <View style={s.thumbTags}>
+                    <View style={s.thumbTag}>
+                      <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>
+                        {CLUB_LABEL[latestSession.clubType] ?? latestSession.clubType}
+                      </Text>
+                    </View>
+                    <View style={s.thumbTag}>
+                      <Text style={s.thumbTagText} maxFontSizeMultiplier={1.2}>
+                        {VIEW_LABEL[latestSession.viewType] ?? latestSession.viewType}
+                      </Text>
+                    </View>
+                  </View>
                   <Text style={s.analysisLabel}>분석 요약</Text>
                   <Text style={s.analysisSummary}>
                     {`${CLUB_LABEL[latestSession.clubType] ?? latestSession.clubType} · ${VIEW_LABEL[latestSession.viewType] ?? latestSession.viewType} 뷰 분석 완료. 상세 피드백을 확인하세요.`}
@@ -206,11 +216,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={s.tipCard}>
           <View style={s.tipHeader}>
             <Text style={s.tipIcon}>🎓</Text>
-            <Text style={s.tipTitle}>Today's Pro Tip</Text>
+            <Text style={s.tipTitle}>{aiTip ? '내 스윙 기반 팁' : "Today's Pro Tip"}</Text>
           </View>
           <Text style={s.tipBody}>
-            <Text style={{ fontWeight: '700' }}>{levelLabel}:</Text>
-            {" 정확한 어드레스 자세가 좋은 스윙의 시작입니다.\n리드 암을 곧게 유지하며 백스윙을 해보세요."}
+            {aiTip
+              ? `${aiTip.title}\n${aiTip.body}`
+              : `${levelLabel}: ${getStaticTip(expLevel)}`}
           </Text>
           <TouchableOpacity
             style={s.tipBtn}
@@ -225,38 +236,30 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.statsScroll}>
           <View style={s.statCard}>
-            <Text style={s.statLabel} maxFontSizeMultiplier={1.2}>BEST SCORE</Text>
-            <View style={s.statValueRow}>
-              <Text style={s.statValue} maxFontSizeMultiplier={1.2}>
-                {latestSession?.overallScore ?? '—'}
-              </Text>
-              {latestSession && <Text style={s.statUnit} maxFontSizeMultiplier={1.2}>pts</Text>}
-            </View>
-            <View style={s.statBarBg}>
-              <View style={[s.statBarFill, { width: `${scoreProgress * 100}%`, backgroundColor: C.green }]} />
-            </View>
-          </View>
-          <View style={s.statCard}>
             <Text style={s.statLabel} maxFontSizeMultiplier={1.2}>SESSIONS</Text>
             <View style={s.statValueRow}>
               <Text style={s.statValue} maxFontSizeMultiplier={1.2}>{totalSessions}</Text>
               <Text style={s.statUnit} maxFontSizeMultiplier={1.2}>회</Text>
             </View>
             <View style={s.statBarBg}>
-              <View style={[s.statBarFill, { width: `${Math.min(totalSessions / 50, 1) * 100}%`, backgroundColor: C.blue }]} />
+              <View style={[s.statBarFill, { width: `${Math.min(totalSessions / 50, 1) * 100}%`, backgroundColor: C.green }]} />
             </View>
           </View>
         </ScrollView>
 
-        <View style={{ height: 100 }} />
+        <BottomSpacer tabBar />
       </ScrollView>
 
       <TouchableOpacity
-        style={s.fab}
+        style={[s.fab, { bottom: fabBottom }]}
         activeOpacity={0.85}
-        onPress={() => navigation?.navigate('SwingChat')}>
+        onPress={() => {
+          if (!latestSession) { Alert.alert('스윙 기록 없음', '먼저 스윙을 기록해 주세요.'); return; }
+          navigation?.getParent()?.navigate('SwingChat', { sessionId: latestSession.sessionId });
+        }}>
         <Text style={s.fabIcon}>💬</Text>
       </TouchableOpacity>
+
     </SafeAreaView>
   );
 };
@@ -266,34 +269,6 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 8, gap: 24 },
 
-  heroCard: {
-    backgroundColor: C.greenLight,
-    borderRadius: 28,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 12,
-  },
-  heroText: { flex: 1, gap: 4 },
-  heroGreeting: { fontSize: 22, fontWeight: '700', color: '#005313' },
-  heroSub: { fontSize: 13, color: C.textSecondary, lineHeight: 20, marginBottom: 8 },
-  levelBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: C.bluePill,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  levelText: { fontSize: 10, color: '#001d36', fontWeight: '600', letterSpacing: 0.5 },
-  heroCharacterWrap: { width: 80, height: 80, alignItems: 'center', justifyContent: 'center' },
-  heroCharacterBg: {
-    position: 'absolute',
-    width: 100, height: 100,
-    borderRadius: 50,
-    backgroundColor: C.greenPill,
-    opacity: 0.2,
-  },
-  heroCharacter: { width: 80, height: 80, resizeMode: 'contain' },
 
   quickGrid: { gap: 12 },
   btnRecord: {
@@ -367,24 +342,13 @@ const s = StyleSheet.create({
   emptyIcon: { fontSize: 28 },
   emptyText: { fontSize: 14, color: C.textMuted },
 
-  swingThumb: { height: 192, position: 'relative' },
-  swingThumbImg: { width: '100%', height: '100%', resizeMode: 'cover' },
-  scoreBadge: {
-    position: 'absolute', top: 14, right: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 999,
-    paddingHorizontal: 10, paddingVertical: 4,
-  },
-  scoreBadgeLabel: { fontSize: 11, color: C.textMuted, fontWeight: '600', letterSpacing: 0.5 },
-  scoreBadgeValue: { fontSize: 20, fontWeight: '700', color: C.green },
-  thumbTags: { position: 'absolute', bottom: 14, left: 14, flexDirection: 'row', gap: 6 },
+  thumbTags: { flexDirection: 'row', gap: 6, marginBottom: 8 },
   thumbTag: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: C.greenLight,
     borderRadius: 12,
     paddingHorizontal: 7, paddingVertical: 3,
   },
-  thumbTagText: { fontSize: 11, color: '#fff', fontWeight: '400' },
+  thumbTagText: { fontSize: 11, color: C.green, fontWeight: '600' },
   swingAnalysis: {
     backgroundColor: '#f2f4f2',
     flexDirection: 'row',
@@ -394,7 +358,7 @@ const s = StyleSheet.create({
   },
   analysisBullet: {
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: C.greenPill,
+    backgroundColor: C.greenLight,
     marginTop: 2,
   },
   analysisLabel: { fontSize: 10, fontWeight: '700', color: C.textPrimary, letterSpacing: 0.6, marginBottom: 4, textTransform: 'uppercase' },

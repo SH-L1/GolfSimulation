@@ -9,8 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../context/AuthContext';
+import { ApiError } from '../../api/client';
 
 const C = {
   bg:       '#f8faf8',
@@ -27,20 +31,30 @@ const C = {
 type Props = { navigation?: any };
 
 export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
+  const { signUp } = useAuth();
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm]   = useState('');
   const [showPw, setShowPw]     = useState(false);
   const [showCf, setShowCf]     = useState(false);
+  const [loading, setLoading]   = useState(false);
 
-  const pwMismatch  = confirm.length > 0 && password !== confirm;
-  const canSubmit   = name.trim() && email.trim() && password.length >= 6 && password === confirm;
+  const pwMismatch = confirm.length > 0 && password !== confirm;
+  const canSubmit  = name.trim() && email.trim() && password.length >= 6 && password === confirm;
 
-  // 백엔드 미개발 — 완료 시 LevelSetting으로 이동
-  const handleSignUp = () => {
-    if (!canSubmit) return;
-    navigation?.navigate('LevelSetting', { nextScreen: 'Main' });
+  const handleSignUp = async () => {
+    if (!canSubmit) { return; }
+    setLoading(true);
+    try {
+      await signUp(name.trim(), email.trim(), password);
+      navigation?.navigate('LevelSetting', { nextScreen: 'Main' });
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : '회원가입 중 오류가 발생했습니다.';
+      Alert.alert('회원가입 실패', msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -154,11 +168,13 @@ export const SignUpScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* 회원가입 버튼 */}
           <TouchableOpacity
-            style={[s.submitBtn, !canSubmit && s.submitBtnDisabled]}
-            onPress={handleSignUp}
+            style={[s.submitBtn, (!canSubmit || loading) && s.submitBtnDisabled]}
+            onPress={() => { void handleSignUp(); }}
             activeOpacity={0.85}
-            disabled={!canSubmit}>
-            <Text style={s.submitText}>회원가입</Text>
+            disabled={!canSubmit || loading}>
+            {loading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={s.submitText}>회원가입</Text>}
           </TouchableOpacity>
 
           {/* 로그인 링크 */}
