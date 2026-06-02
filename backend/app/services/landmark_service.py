@@ -1,0 +1,2 @@
+class LandmarkService:
+    pass
