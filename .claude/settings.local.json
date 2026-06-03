@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l grep -l '\"method\": \"fallback\"' \"c:/Users/user/Documents/GitHub/GolfSimulation/data/new pose/dtl/\"*.json)",
+      "Bash(wc -l grep -l '\"method\": \"fallback\"' \"c:/Users/user/Documents/GitHub/GolfSimulation/data/new pose/face_on/\"*.json)",
+      "Bash(python3 -c ' *)",
+      "Bash(cp \"c:/Users/user/Downloads/drive-download-20260416T015941Z-3-001/model.py\" \"c:/Users/user/Documents/GitHub/GolfSimulation/GolfSwingData/swingnet/model.py\")",
+      "Bash(cp \"c:/Users/user/Downloads/drive-download-20260416T015941Z-3-001/MobileNetV2.py\" \"c:/Users/user/Documents/GitHub/GolfSimulation/GolfSwingData/swingnet/MobileNetV2.py\")",
+      "Bash(cp \"c:/Users/user/Downloads/drive-download-20260416T015941Z-3-001/mobilenet_v2.pth\" \"c:/Users/user/Documents/GitHub/GolfSimulation/GolfSwingData/swingnet/mobilenet_v2.pth\")",
+      "Bash(cp \"c:/Users/user/Downloads/drive-download-20260416T015941Z-3-001/swingnet_1800.pth\" \"c:/Users/user/Documents/GitHub/GolfSimulation/GolfSwingData/swingnet/swingnet_1800.pth\")",
+      "Bash(cp -r \"c:/Users/user/Downloads/drive-download-20260416T015941Z-3-001/mobilenet_v2.pth\" \"c:/Users/user/Documents/GitHub/GolfSimulation/GolfSwingData/swingnet/\")",
+      "Bash(cp -r \"c:/Users/user/Downloads/drive-download-20260416T015941Z-3-001/swingnet_1800.pth\" \"c:/Users/user/Documents/GitHub/GolfSimulation/GolfSwingData/swingnet/\")",
+      "Bash(pip install *)",
+      "Read(//c/Users/user/Downloads/new_pose_normalized-20260416T075454Z-3-001/**)",
+      "Read(//c/Users/user/Downloads/new_pose_swingnet-20260416T075449Z-3-001/**)",
+      "Bash(python3)"
+    ]
+  }
+}
