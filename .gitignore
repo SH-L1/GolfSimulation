@@ -79,6 +79,14 @@ backend/output/
 **/.pytest_cache/
 **/*.egg-info/
 
+# ── 프론트엔드 무관 디렉토리 (이 레포에서 제외) ────────────────────
+backend/
+GolfSimulation_2022/
+GolfSwingData/
+data/
+datalization/
+tools/
+
 # 기타
 coverage/
 *.jsbundle
