@@ -62,6 +62,23 @@ Unity_PT/
 # OAuth 키 — 로컬에서만 관리 (절대 커밋 금지)
 src/constants/oauth.ts
 
+# ── Python (backend, tools, data 등 전체 적용) ────────────────────
+# 환경변수 / 시크릿 (절대 커밋 금지)
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# 업로드된 실제 파일 (바이너리, 개인정보)
+backend/tmp/
+backend/output/
+
+# Python 캐시 (프로젝트 전체)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/*.egg-info/
+
 # 기타
 coverage/
 *.jsbundle
