@@ -121,15 +121,17 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
   const isBusy = status === 'connecting' || status === 'streaming';
 
   // 탭으로 돌아올 때 chatSessionId 없으면 상태 초기화
+  const cancelRef = useRef(cancel);
+  useEffect(() => { cancelRef.current = cancel; }, [cancel]);
+
   useFocusEffect(
     useCallback(() => {
       if (!route?.params?.chatSessionId) {
-        cancel();
+        cancelRef.current();
         streamingIdRef.current   = null;
         chatSessionIdRef.current = null;
         setMessages([WELCOME_MESSAGE]);
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [route?.params?.chatSessionId]),
   );
 
@@ -154,7 +156,7 @@ export const SwingChatScreen: React.FC<Props> = ({ navigation, route }) => {
           id:   m.message_id,
           role: m.role === 'user' ? 'user' : 'ai',
           text: m.content,
-          time: new Date(m.created_at).toLocaleTimeString('en-US', {
+          time: new Date(m.created_at).toLocaleTimeString('ko-KR', {
             hour:   '2-digit',
             minute: '2-digit',
             hour12: true,

@@ -6,17 +6,19 @@ export type {
   BodyRatios, ProRecommendNeighbor, ProRecommendResponse,
 } from '../types/module3';
 
-// events → 각 프레임에 phase 파생 (address, top, impact, finish 등)
-function derivePhases(frames: PoseFrame[], events: Record<string, { frame: number }>): void {
+// events → 각 프레임에 phase 파생
+// events[x].frame은 원본 프레임 번호 → frame_orig와 비교
+function derivePhases(frames: PoseFrame[], events: LandmarkResponse['events']): void {
   const sorted = Object.entries(events)
     .map(([phase, { frame }]) => ({ phase, frame }))
     .sort((a, b) => a.frame - b.frame);
   if (sorted.length === 0) { return; }
+  // frames가 frame_orig 기준으로 정렬돼 있지 않을 수 있으므로 각 프레임 독립 판단
   for (const f of frames) {
+    const orig = f.frame_orig ?? f.frame;
     let phase = sorted[0].phase;
     for (const e of sorted) {
-      if (f.frame >= e.frame) { phase = e.phase; }
-      else { break; }
+      if (orig >= e.frame) { phase = e.phase; }
     }
     f.phase = phase;
   }
@@ -43,7 +45,7 @@ export async function getLandmarks(sessionId: string): Promise<LandmarkResponse>
 
 export async function getProLandmarks(
   playerId: string,
-  viewtype: 'face_on' | 'down_the_line' = 'face_on',
+  viewtype: 'faceon' | 'downtheline' = 'faceon',
 ): Promise<LandmarkResponse> {
   const res = await apiFetch<LandmarkResponse>(`${ENDPOINTS.module3.pro(playerId)}?viewtype=${viewtype}`);
   return enrichResponse(res);

@@ -55,8 +55,9 @@ export const CameraScreen: React.FC<Props> = ({ navigation }) => {
   const [elapsed, setElapsed]       = useState(0);
   const [showGuide, setShowGuide]   = useState(false);
 
-  const elapsedRef      = useRef(0);
-  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedRef        = useRef(0);
+  const elapsedTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!hasCam) { void reqCam(); }
@@ -70,7 +71,10 @@ export const CameraScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, []);
 
-  useEffect(() => () => stopElapsedTimer(), [stopElapsedTimer]);
+  useEffect(() => () => {
+    stopElapsedTimer();
+    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); }
+  }, [stopElapsedTimer]);
 
   const startElapsedTimer = useCallback(() => {
     elapsedRef.current = 0;
@@ -134,10 +138,11 @@ export const CameraScreen: React.FC<Props> = ({ navigation }) => {
     // 카운트다운 후 녹화 시작
     setCountdown(timerSec);
     let remaining = timerSec;
-    const id = setInterval(() => {
+    countdownTimerRef.current = setInterval(() => {
       remaining -= 1;
       if (remaining <= 0) {
-        clearInterval(id);
+        clearInterval(countdownTimerRef.current!);
+        countdownTimerRef.current = null;
         setCountdown(null);
         void startRecording();
       } else {

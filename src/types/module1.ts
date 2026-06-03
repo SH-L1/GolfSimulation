@@ -59,7 +59,8 @@ export interface AnalyzeJobResponse {
 }
 
 export interface JobStatusResponse {
-  status:     'queued' | 'processing' | 'done' | 'error';
-  sessionid?: string;
-  message?:   string;
+  status:       'queued' | 'processing' | 'done' | 'error';
+  sessionid?:   string;
+  message?:     string;
+  step_errors?: Record<string, string>;  // step4~8 개별 실패 시 (부분 결과는 계속 반환됨)
 }

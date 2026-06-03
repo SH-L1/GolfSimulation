@@ -14,8 +14,8 @@ import { useFabBottom } from '../../hooks/useFabBottom';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { useAuth } from '../../hooks/useAuth';
-import { getSessions, getSession } from '../../api/module1';
-import type { SessionSummary } from '../../api/module1';
+import { getSessions, getAnalysisResult } from '../../api/module1';
+import type { SessionSummary, AnalysisResult } from '../../api/module1';
 import { VIEW_LABEL, CLUB_LABEL } from '../../constants/swing';
 
 const C = {
@@ -97,8 +97,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           setLatestSession(session);
           setTotalSessions(res.total);
           if (session) {
-            getSession(session.sessionId)
-              .then(result => {
+            // /module1/result/{id} — 전체 분석 결과(recommendations 포함)
+            getAnalysisResult(session.sessionId)
+              .then((result: AnalysisResult) => {
                 const rec = result.recommendations[0];
                 if (rec?.title && rec?.body) {
                   setAiTip({ title: rec.title, body: rec.body });
@@ -225,7 +226,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             style={s.tipBtn}
-            onPress={() => navigation?.navigate('Viewer3D')}>
+            onPress={() => {
+              if (!latestSession) { return; }
+              navigation?.navigate('Viewer3D', { sessionId: latestSession.sessionId });
+            }}>
             <Text style={s.tipBtnText}>WATCH DRILLS ›</Text>
           </TouchableOpacity>
         </View>

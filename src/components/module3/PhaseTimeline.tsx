@@ -50,7 +50,10 @@ export const PhaseTimeline: React.FC<Props> = ({ frames, currentIndex, onSeek })
       {/* 레이블 */}
       <View style={s.labels}>
         {phases.map(p => (
-          <Text key={p.phase} style={[s.label, { flex: p.end - p.start + 1, color: PHASE_COLOR[p.phase] ?? '#9ca3af' }]}>
+          <Text
+            key={p.phase}
+            numberOfLines={1}
+            style={[s.label, { flex: p.end - p.start + 1, color: PHASE_COLOR[p.phase] ?? '#9ca3af' }]}>
             {PHASE_LABEL[p.phase] ?? p.phase}
           </Text>
         ))}
@@ -64,6 +67,6 @@ const s = StyleSheet.create({
   bar:      { height: 12, flexDirection: 'row', borderRadius: 6, overflow: 'hidden', position: 'relative' },
   segment:  { height: '100%' },
   playhead: { position: 'absolute', top: -3, width: 3, height: 18, backgroundColor: '#fff', borderRadius: 2, marginLeft: -1.5 },
-  labels:   { flexDirection: 'row' },
-  label:    { fontSize: 9, fontWeight: '700', textAlign: 'center', textTransform: 'uppercase' },
+  labels:   { flexDirection: 'row', height: 14, overflow: 'hidden' },
+  label:    { fontSize: 9, fontWeight: '700', textAlign: 'center', textTransform: 'uppercase', lineHeight: 14 },
 });

@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { BottomSpacer } from '../../components/ui/BottomSpacer';
 import { useAuth } from '../../hooks/useAuth';
@@ -66,7 +67,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         style: 'destructive',
         onPress: async () => {
           await logout();
-          navigation?.navigate('Login');
+          // 전체 스택 초기화 — 뒤로가기로 인증 화면 복귀 방지
+          navigation?.dispatch(
+            CommonActions.reset({ index: 0, routes: [{ name: 'Onboarding' }] }),
+          );
         },
       },
     ]);

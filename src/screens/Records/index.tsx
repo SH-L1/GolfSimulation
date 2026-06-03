@@ -45,8 +45,8 @@ function sessionTitle(s: SessionSummary): string {
 function formatDate(iso: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-      ' • ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }) +
+      ' • ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
   } catch {
     return iso;
   }
@@ -212,7 +212,7 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
                   style={s.searchInput}
                   value={searchText}
                   onChangeText={setSearchText}
-                  placeholder="Search sessions..."
+                  placeholder="세션 검색..."
                   placeholderTextColor={C.textMuted}
                 />
               </View>
@@ -275,7 +275,7 @@ export const RecordsScreen: React.FC<Props> = ({ navigation }) => {
                   style={s.searchInput}
                   value={aiSearchText}
                   onChangeText={setAiSearchText}
-                  placeholder="Search conversations..."
+                  placeholder="채팅 검색..."
                   placeholderTextColor={C.textMuted}
                 />
               </View>

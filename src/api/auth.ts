@@ -43,12 +43,6 @@ export async function getMe(): Promise<AuthUser> {
   return apiFetch<AuthUser>(ENDPOINTS.auth.me);
 }
 
-export async function verifyToken(): Promise<boolean> {
-  const data = await apiFetch<{ valid: boolean }>(ENDPOINTS.auth.verify)
-    .catch(() => ({ valid: false }));
-  return data.valid;
-}
-
 export async function logout(): Promise<void> {
   await clearToken();
 }

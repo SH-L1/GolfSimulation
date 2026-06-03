@@ -15,9 +15,8 @@ function createStore<T>(initial: T) {
 const resultStore    = createStore<AnalysisResult | null>(null);
 const sessionIdStore = createStore<string | null>(null);
 
-export const getAnalysisResult    = resultStore.get;
-export const subscribeAnalysis    = resultStore.subscribe;
-export const getCurrentSessionId  = sessionIdStore.get;
+export const getAnalysisResult   = resultStore.get;
+export const getCurrentSessionId = sessionIdStore.get;
 
 export function setAnalysisResult(result: AnalysisResult | null): void {
   resultStore.set(result);

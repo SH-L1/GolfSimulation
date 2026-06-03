@@ -76,8 +76,13 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
   // ── 재생 상태 ──────────────────────────────────────────────────
   const [unityMounted,       setUnityMounted]       = useState(false);
   const [unityReady,         setUnityReady]         = useState(false);
+  const unityReadyRef        = useRef(false);
+  useEffect(() => { unityReadyRef.current = unityReady; }, [unityReady]);
   const pendingSwingUrl      = useRef<string | null>(null);
+  const pendingProUrl        = useRef<string | null>(null);
   const [playing,            setPlaying]            = useState(false);
+  const playingRef           = useRef(false);
+  useEffect(() => { playingRef.current = playing; }, [playing]);
   const [currentFrameIndex,  setCurrent]            = useState(0);
   const [activeSpeed,        setSpeed]              = useState(2);
   const [activeCam,          setCam]                = useState(0);
@@ -112,6 +117,12 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
     if (!unityRef.current) { return; }
     const trimmed = url.trim();
     unityRef.current.postMessage('SwingController', 'LoadSwingData', trimmed);
+    // Unity가 데이터 로드 후 자동 재생 — 로딩 타이밍 불확실하므로 여러 번 Pause 전송
+    [300, 800, 1500, 2500].forEach(ms => setTimeout(() => {
+      if (!playingRef.current) {
+        unityRef.current?.postMessage('SwingController', 'Pause', '');
+      }
+    }, ms));
     console.log('[Unity] LoadSwingData sent:', trimmed);
   }, []);
 
@@ -161,6 +172,15 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
       if (pendingSwingUrl.current) {
         sendSwingData(pendingSwingUrl.current);
       }
+      // 스윙 데이터 로드 후 프로 데이터 전송 (500ms 딜레이로 순서 보장)
+      if (pendingProUrl.current) {
+        setTimeout(() => {
+          if (pendingProUrl.current) {
+            unityRef.current?.postMessage('SwingController', 'LoadReferenceSwingData', pendingProUrl.current);
+            console.log('[Unity] LoadReferenceSwingData sent on ready:', pendingProUrl.current);
+          }
+        }, 500);
+      }
     }
   }, [unityReady, sendSwingData]);
 
@@ -168,19 +188,20 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
   useEffect(() => {
     if (!unityMounted) { return; }
     const t1 = setTimeout(() => {
-      if (!unityReady && pendingSwingUrl.current) {
-        console.log('[Unity] 5s fallback retry');
-        sendSwingData(pendingSwingUrl.current);
+      if (!unityReadyRef.current) {
+        console.log('[Unity] 5s fallback: marking ready');
+        setUnityReady(true);
+        if (pendingSwingUrl.current) { sendSwingData(pendingSwingUrl.current); }
       }
     }, 5000);
     const t2 = setTimeout(() => {
-      if (!unityReady && pendingSwingUrl.current) {
+      if (pendingSwingUrl.current) {
         console.log('[Unity] 10s fallback retry');
         sendSwingData(pendingSwingUrl.current);
       }
     }, 10000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [unityMounted]);
+  }, [unityMounted, sendSwingData]);
 
   // ── Unity: 프로 추천 1위 자동 로드 ────────────────────────────
   useEffect(() => {
@@ -194,9 +215,15 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
           getToken().then(token => {
             const serverBase = API_BASE.replace(/\/api$/, '');
             const base = `${serverBase}/${top.swing_url}`;
-            const fullUrl = token ? `${base}&token=${token}` : base;
-            unityRef.current?.postMessage('SwingController', 'LoadReferenceSwingData', fullUrl);
-            console.log('[Unity] LoadReferenceSwingData sent:', fullUrl);
+            // swing_url에 이미 ?가 있으면 &token=, 없으면 ?token=
+            const sep = top.swing_url.includes('?') ? '&' : '?';
+            const fullUrl = token ? `${base}${sep}token=${token}` : base;
+            pendingProUrl.current = fullUrl;
+            // unityReadyRef로 stale closure 방지
+            if (unityReadyRef.current && unityRef.current) {
+              unityRef.current.postMessage('SwingController', 'LoadReferenceSwingData', fullUrl);
+              console.log('[Unity] LoadReferenceSwingData sent immediately:', fullUrl);
+            }
             setProLoaded(true);
           });
         } else {
@@ -207,6 +234,18 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
       .finally(() => setProLoading(false));
   }, [sessionId]);
 
+  // ── unityReady 시점에 pendingProUrl 전송 ─────────────────────
+  useEffect(() => {
+    if (!unityReady || !pendingProUrl.current) { return; }
+    const t = setTimeout(() => {
+      if (pendingProUrl.current && unityRef.current) {
+        unityRef.current.postMessage('SwingController', 'LoadReferenceSwingData', pendingProUrl.current);
+        console.log('[Unity] LoadReferenceSwingData sent on ready:', pendingProUrl.current);
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [unityReady]);
+
   // ── Unity: 프레임 동기화 ───────────────────────────────────────
   useEffect(() => {
     if (!unityReady || !unityRef.current || total === 0) { return; }
@@ -214,16 +253,20 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
     unityRef.current.postMessage('SwingController', 'SeekFrame', String(f));
   }, [currentFrameIndex, unityReady]);
 
-  // ── Unity: 비교 모드 전환 (unityReady 후에만) ─────────────────
+  // ── Unity: 아바타 가시성 (compMode와 무관하게 proLoaded면 항상 표시) ─
   useEffect(() => {
     if (!unityReady || !unityRef.current) { return; }
     const u = unityRef.current;
-    if (!compMode) {
+
+    if (!proLoaded) {
+      // 프로 데이터 없음 — 내 스윙만 표시
       u.postMessage('SwingController', 'SetUserAvatarVisible',      'true');
       u.postMessage('SwingController', 'SetReferenceAvatarVisible', 'false');
       u.postMessage('SwingController', 'SetComparisonOverlayEnabled', 'false');
       return;
     }
+
+    // 프로 데이터 있음 — 패널(compMode)과 무관하게 viewMode 적용
     u.postMessage('SwingController', 'SetComparisonOverlayEnabled', 'true');
     switch (viewMode) {
       case 'user':
@@ -235,11 +278,12 @@ export const Viewer3DScreen: React.FC<Props> = ({ navigation, route }) => {
         u.postMessage('SwingController', 'SetReferenceAvatarVisible', 'true');
         break;
       case 'overlay':
+      default:
         u.postMessage('SwingController', 'SetUserAvatarVisible',      'true');
         u.postMessage('SwingController', 'SetReferenceAvatarVisible', 'true');
         break;
     }
-  }, [unityReady, compMode, viewMode]);
+  }, [unityReady, proLoaded, viewMode]);
 
   // ── Unity: 싱크 ───────────────────────────────────────────────
   useEffect(() => {
@@ -357,7 +401,7 @@ const handleSeek = useCallback((frameNum: number) => {
             {proLoading
               ? <ActivityIndicator color="#fff" size="small" />
               : <Text style={s.compToggleText}>
-                  {proLoaded ? (compMode ? '비교 ON' : '비교') : '추천 없음'}
+                  {proLoaded ? (compMode ? '✕ 닫기' : '⚙️ 비교') : '로딩 중'}
                 </Text>
             }
           </TouchableOpacity>
@@ -530,9 +574,9 @@ const s = StyleSheet.create({
   compToggleBtnOn: { backgroundColor: C.green, borderColor: C.green },
   compToggleText:  { fontSize: 13, fontWeight: '700', color: '#fff' },
 
-  // 비교 패널
+  // 비교 패널 — 우측 하단 (스크러버 위, 스윙 영역 침범 최소화)
   compPanel: {
-    position: 'absolute', right: 16, top: 160,
+    position: 'absolute', right: 16, bottom: 170,
     backgroundColor: C.glass,
     borderRadius: 16, padding: 12, gap: 10, minWidth: 180,
     borderWidth: 1, borderColor: C.glassBright,

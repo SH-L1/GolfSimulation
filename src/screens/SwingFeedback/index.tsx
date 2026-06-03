@@ -118,12 +118,14 @@ export const SwingFeedbackScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // 점수 색상이 적용된 페이즈 배열
   const phases = result
-    ? (Object.entries(result.phaseScores) as [SwingPhase, number][]).map(([phase, score]) => ({
-        label: PHASE_LABEL[phase],
-        score,
-        color: scoreColor(score),
-        pct:   score / 100,
-      }))
+    ? (Object.entries(result.phaseScores) as [string, number][])
+        .filter(([, score]) => typeof score === 'number')
+        .map(([phase, score]) => ({
+          label: PHASE_LABEL[phase] ?? phase,
+          score,
+          color: scoreColor(score),
+          pct:   score / 100,
+        }))
     : [];
 
   // 하위 2개 지표 (점수 낮은 순)

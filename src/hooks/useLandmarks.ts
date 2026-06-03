@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getLandmarks, getProLandmarks } from '../api/module3';
+import { getLandmarks } from '../api/module3';
 import type { LandmarkResponse } from '../types/module3';
 
 export function useLandmarks(sessionId: string | null) {
@@ -17,13 +17,5 @@ export function useLandmarks(sessionId: string | null) {
       .finally(() => setLoading(false));
   }, [sessionId]);
 
-  const fetchPro = async (playerId: string): Promise<LandmarkResponse | null> => {
-    try {
-      return await getProLandmarks(playerId);
-    } catch {
-      return null;
-    }
-  };
-
-  return { userFrames, loading, error, fetchPro };
+  return { userFrames, loading, error };
 }

@@ -65,18 +65,25 @@ type Props = {
 
 export const LevelSettingScreen: React.FC<Props> = ({ navigation, route }) => {
   const { updateExperienceLevel } = useAuth();
-  const [selected, setSelected] = useState<string>('intermediate');
+  const [selected, setSelected]   = useState<string>('intermediate');
+  const [saving, setSaving]       = useState(false);
 
   const handleConfirm = async () => {
-    await AsyncStorage.setItem(STORAGE_KEY_SETUP_DONE, 'true');
-    await updateExperienceLevel(selected as ExperienceLevel);
-    const next = route?.params?.nextScreen;
-    if (next) {
-      navigation?.replace(next);
-    } else if (navigation?.canGoBack()) {
-      navigation?.goBack();
-    } else {
-      navigation?.replace('Main');
+    if (saving) { return; }
+    setSaving(true);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY_SETUP_DONE, 'true');
+      await updateExperienceLevel(selected as ExperienceLevel);
+      const next = route?.params?.nextScreen;
+      if (next) {
+        navigation?.replace(next);
+      } else if (navigation?.canGoBack()) {
+        navigation?.goBack();
+      } else {
+        navigation?.replace('Main');
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -146,10 +153,11 @@ export const LevelSettingScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* 선택 완료 버튼 */}
         <TouchableOpacity
-          style={s.ctaBtn}
-          onPress={handleConfirm}
+          style={[s.ctaBtn, saving && { opacity: 0.7 }]}
+          onPress={() => { void handleConfirm(); }}
+          disabled={saving}
           activeOpacity={0.85}>
-          <Text style={s.ctaText}>선택 완료</Text>
+          <Text style={s.ctaText}>{saving ? '저장 중...' : '선택 완료'}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />

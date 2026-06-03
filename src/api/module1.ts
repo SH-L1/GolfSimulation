@@ -40,7 +40,7 @@ interface ApiAnalysisResult {
   clubtype:          string;
   inputfilename?:    string | null;
   analyzedat?:       string | null;
-  events:            Record<string, number>;
+  events:            Record<string, { frame: number; confidence?: number; timestamp?: number }>;
   metrics:           Record<string, number>;
   scores:            ApiScoreBundle;
   priority_coaching: ApiPriorityCoaching[];
@@ -178,7 +178,3 @@ export async function getSessions(page = 1, limit = 20): Promise<SessionListResp
   };
 }
 
-export async function getSession(sessionId: string): Promise<AnalysisResult> {
-  const api = await apiFetch<ApiAnalysisResult>(ENDPOINTS.module1.session(sessionId));
-  return mapAnalysisResult(api);
-}

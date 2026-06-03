@@ -1,1 +1,0 @@
-export { SwingScoreRing } from './SwingScoreRing';

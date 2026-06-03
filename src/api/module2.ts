@@ -1,3 +1,4 @@
+import { CommonActions } from '@react-navigation/native';
 import { apiFetch, clearToken, getToken, API_BASE, ENDPOINTS } from './client';
 import { navigationRef } from '../navigation/navigationRef';
 import type { ChatStreamRequest, ChatHistoryResponse } from '../types/module2';
@@ -55,7 +56,9 @@ export function streamChat(
       if (aborted) { return; }
       if (xhr.status === 401) {
         clearToken().then(() => {
-          if (navigationRef.isReady()) { navigationRef.navigate('Login'); }
+          if (navigationRef.isReady()) {
+            navigationRef.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
+          }
           onError('인증이 만료되었습니다. 다시 로그인해 주세요.');
         });
         return;

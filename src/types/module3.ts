@@ -15,18 +15,24 @@ export interface BodyRatios {
 }
 
 export interface PoseFrame {
-  frame:     number;     // frame number (was frame_index)
-  timestamp: number;     // seconds (was timestamp_ms in ms)
-  has_pose:  boolean;
-  landmarks: Landmark[];
-  phase?:    string;     // derived from events by API layer
+  frame:      number;   // 0-based re-numbered index (재번호화)
+  frame_orig: number;   // 원본 영상 프레임 번호 (events[x].frame 기준)
+  timestamp:  number;   // seconds
+  has_pose:   boolean;
+  landmarks:  Landmark[];
+  phase?:     string;   // derived from events by API layer
+}
+
+export interface SwingEvent {
+  frame:       number;    // 원본 영상 프레임 번호
+  is_fallback?: boolean;  // SwingNet 미감지 시 true
 }
 
 export interface LandmarkResponse {
   session_id:      string;
   final_json_path: string;
   viewtype:        string;
-  events:          Record<string, { frame: number }>;
+  events:          Record<string, SwingEvent>;
   body_ratios:     BodyRatios;
   frames:          PoseFrame[];
   fps?:            number;  // computed by API layer
