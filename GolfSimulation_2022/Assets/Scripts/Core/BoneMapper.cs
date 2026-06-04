@@ -23,10 +23,10 @@ namespace GolfSimulation.Core
         [SerializeField] private bool enableFallbackIK = false;
 
         [Header("Coordinate Mapping")]
-        [SerializeField] private Vector3 dataAxisSigns = new Vector3(-1f, 1f, -1f);
+        [SerializeField] private Vector3 dataAxisSigns = new Vector3(-1f, 1f, 1f);
         [SerializeField] private bool enableBodyFrameCalibration = true;
         [SerializeField] private bool preserveBodySideContinuity = true;
-        [SerializeField] private bool useBackFacingBodyFrame = true;
+        [SerializeField] private bool useBackFacingBodyFrame = false;
 
         [Header("Golf Posture")]
         [SerializeField] private bool preserveGolfForwardBend = true;
@@ -106,6 +106,38 @@ namespace GolfSimulation.Core
             public Vector3 restAimDir;
         }
 
+        private struct RetargetSkeleton
+        {
+            public bool valid;
+            public Vector3 pelvis;
+            public Vector3 shoulders;
+            public Vector3 ears;
+            public Vector3 right;
+            public Vector3 up;
+            public Vector3 forward;
+            public Vector3 front;
+            public Vector3 anatomicalRight;
+            public Vector3 leftShoulder;
+            public Vector3 rightShoulder;
+            public Vector3 leftHip;
+            public Vector3 rightHip;
+            public Vector3 leftElbow;
+            public Vector3 rightElbow;
+            public Vector3 leftWrist;
+            public Vector3 rightWrist;
+            public Vector3 leftKnee;
+            public Vector3 rightKnee;
+            public Vector3 leftAnkle;
+            public Vector3 rightAnkle;
+            public Vector3 leftHeel;
+            public Vector3 rightHeel;
+            public Vector3 leftToe;
+            public Vector3 rightToe;
+            public Vector3 nose;
+            public Vector3 leftEar;
+            public Vector3 rightEar;
+        }
+
         private BoneCache hipsCache;
         private BoneCache[] spineChain;
         private float[] spineWeights;
@@ -182,6 +214,7 @@ namespace GolfSimulation.Core
         private Vector3 sourceRestLeftFootRight = Vector3.right;
         private Vector3 sourceRestRightFootForward = Vector3.forward;
         private Vector3 sourceRestRightFootRight = Vector3.right;
+        private RetargetSkeleton currentSkeleton;
 
         // Arm protection — bone indices in trackedBones array
         private int boneIdxLUA = -1, boneIdxLLA = -1, boneIdxRUA = -1, boneIdxRLA = -1;
@@ -654,44 +687,56 @@ namespace GolfSimulation.Core
 
         private void ApplyFKInternal(PoseFrame frame, PoseDataLoader loader)
         {
-            Vector3 lShoulder = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_shoulder"));
-            Vector3 rShoulder = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_shoulder"));
-            Vector3 lHip = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_hip"));
-            Vector3 rHip = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_hip"));
-            Vector3 lElbow = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_elbow"));
-            Vector3 rElbow = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_elbow"));
-            Vector3 lWrist = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_wrist"));
-            Vector3 rWrist = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_wrist"));
-            Vector3 lKnee = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_knee"));
-            Vector3 rKnee = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_knee"));
-            Vector3 lAnkle = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_ankle"));
-            Vector3 rAnkle = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_ankle"));
-            Vector3 lHeel = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_heel"));
-            Vector3 rHeel = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_heel"));
-            Vector3 lToe = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_foot_index"));
-            Vector3 rToe = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_foot_index"));
-            Vector3 nose = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "nose"));
-            Vector3 lEar = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_ear"));
-            Vector3 rEar = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_ear"));
+            RetargetSkeleton skeleton = currentSkeleton.valid ? currentSkeleton : BuildRetargetSkeleton(frame, loader);
+            Vector3 lShoulder = skeleton.leftShoulder;
+            Vector3 rShoulder = skeleton.rightShoulder;
+            Vector3 lHip = skeleton.leftHip;
+            Vector3 rHip = skeleton.rightHip;
+            Vector3 lElbow = skeleton.leftElbow;
+            Vector3 rElbow = skeleton.rightElbow;
+            Vector3 lWrist = skeleton.leftWrist;
+            Vector3 rWrist = skeleton.rightWrist;
+            Vector3 lKnee = skeleton.leftKnee;
+            Vector3 rKnee = skeleton.rightKnee;
+            Vector3 lAnkle = skeleton.leftAnkle;
+            Vector3 rAnkle = skeleton.rightAnkle;
+            Vector3 lHeel = skeleton.leftHeel;
+            Vector3 rHeel = skeleton.rightHeel;
+            Vector3 lToe = skeleton.leftToe;
+            Vector3 rToe = skeleton.rightToe;
+            Vector3 nose = skeleton.nose;
+            Vector3 lEar = skeleton.leftEar;
+            Vector3 rEar = skeleton.rightEar;
 
             Vector3 pelvis = (lHip + rHip) * 0.5f;
             Vector3 shoulders = (lShoulder + rShoulder) * 0.5f;
             Vector3 ears = (lEar + rEar) * 0.5f;
-            lastLeftShoulderWorld = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_shoulder"));
-            lastRightShoulderWorld = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_shoulder"));
+            lastLeftShoulderWorld = AvatarSpacePointToWorld(lShoulder);
+            lastRightShoulderWorld = AvatarSpacePointToWorld(rShoulder);
 
             Vector3 hipRight = (rHip - lHip).normalized;
             Vector3 shoulderRight = (rShoulder - lShoulder).normalized;
             Vector3 trunkDir = (shoulders - pelvis).normalized;
-            if (TryBuildDataBodyFrame(lHip, rHip, lShoulder, rShoulder,
+            if (skeleton.valid)
+            {
+                Vector3 bodyRight = skeleton.right;
+                Vector3 bodyUp = skeleton.up;
+                Vector3 bodyForward = skeleton.forward;
+                hipRight = AlignRightAxisToBody(rHip - lHip, bodyUp, bodyRight);
+                shoulderRight = AlignRightAxisToBody(rShoulder - lShoulder, bodyUp, bodyRight);
+                trunkDir = bodyUp;
+                pelvis = skeleton.pelvis;
+                UpdateBodyReference(pelvis, hipRight, shoulderRight, trunkDir, bodyForward);
+            }
+            else if (TryBuildDataBodyFrame(lHip, rHip, lShoulder, rShoulder,
                     out pelvis, out Vector3 bodyRight, out Vector3 bodyUp, out Vector3 bodyForward))
             {
                 StabilizeBodyFrameHandedness(ref bodyRight, ref bodyForward);
                 hipRight = AlignRightAxisToBody(rHip - lHip, bodyUp, bodyRight);
                 shoulderRight = AlignRightAxisToBody(rShoulder - lShoulder, bodyUp, bodyRight);
                 trunkDir = bodyUp;
+                UpdateBodyReference(pelvis, hipRight, shoulderRight, trunkDir, bodyForward);
             }
-            UpdateBodyReference(pelvis, hipRight, shoulderRight, trunkDir, bodyForward);
 
             if (hipsCache.bone != null)
             {
@@ -773,6 +818,7 @@ namespace GolfSimulation.Core
             if (!isInitialized || frame == null) return;
 
             UpdatePhaseParameters(phase);
+            currentSkeleton = BuildRetargetSkeleton(frame, loader);
 
             ApplyFKInternal(frame, loader);
 
@@ -802,6 +848,101 @@ namespace GolfSimulation.Core
             CacheCurrentPose();
         }
 
+        private RetargetSkeleton BuildRetargetSkeleton(PoseFrame frame, PoseDataLoader loader)
+        {
+            RetargetSkeleton skeleton = new RetargetSkeleton();
+            if (frame == null || loader == null)
+                return skeleton;
+
+            skeleton.leftShoulder = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_shoulder"));
+            skeleton.rightShoulder = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_shoulder"));
+            skeleton.leftHip = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_hip"));
+            skeleton.rightHip = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_hip"));
+            skeleton.leftElbow = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_elbow"));
+            skeleton.rightElbow = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_elbow"));
+            skeleton.leftWrist = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_wrist"));
+            skeleton.rightWrist = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_wrist"));
+            skeleton.leftKnee = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_knee"));
+            skeleton.rightKnee = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_knee"));
+            skeleton.leftAnkle = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_ankle"));
+            skeleton.rightAnkle = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_ankle"));
+            skeleton.leftHeel = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_heel"));
+            skeleton.rightHeel = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_heel"));
+            skeleton.leftToe = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_foot_index"));
+            skeleton.rightToe = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_foot_index"));
+            skeleton.nose = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "nose"));
+            skeleton.leftEar = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_ear"));
+            skeleton.rightEar = DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_ear"));
+
+            skeleton.pelvis = (skeleton.leftHip + skeleton.rightHip) * 0.5f;
+            skeleton.shoulders = (skeleton.leftShoulder + skeleton.rightShoulder) * 0.5f;
+            skeleton.ears = (skeleton.leftEar + skeleton.rightEar) * 0.5f;
+
+            Vector3 rawRight = ((skeleton.rightHip - skeleton.leftHip) + (skeleton.rightShoulder - skeleton.leftShoulder)) * 0.5f;
+            Vector3 rawUp = skeleton.shoulders - skeleton.pelvis;
+            if (!TryBuildDataBodyFrame(skeleton.leftHip, skeleton.rightHip, skeleton.leftShoulder, skeleton.rightShoulder,
+                    out skeleton.pelvis, out skeleton.right, out skeleton.up, out skeleton.forward))
+            {
+                skeleton.right = rawRight.sqrMagnitude > 0.0001f ? rawRight.normalized : lastShoulderRight;
+                skeleton.up = rawUp.sqrMagnitude > 0.0001f ? rawUp.normalized : lastTrunkDir;
+                Orthonormalize(ref skeleton.right, ref skeleton.up, out skeleton.forward);
+            }
+
+            StabilizeBodyFrameHandedness(ref skeleton.right, ref skeleton.forward);
+            skeleton.anatomicalRight = useBackFacingBodyFrame ? -skeleton.right : skeleton.right;
+            skeleton.front = useBackFacingBodyFrame ? -skeleton.forward : skeleton.forward;
+            if (skeleton.front.sqrMagnitude < 0.001f)
+                skeleton.front = avatarForwardReference.sqrMagnitude > 0.001f ? avatarForwardReference.normalized : Vector3.forward;
+            if (skeleton.anatomicalRight.sqrMagnitude < 0.001f)
+                skeleton.anatomicalRight = Vector3.right;
+
+            float bodyWidth = Mathf.Max(
+                Vector3.Distance(skeleton.leftHip, skeleton.rightHip),
+                Vector3.Distance(skeleton.leftShoulder, skeleton.rightShoulder));
+            bodyWidth = Mathf.Max(bodyWidth, 0.2f);
+
+            ProtectArmChain(ref skeleton.leftElbow, ref skeleton.leftWrist, skeleton.leftShoulder, skeleton.pelvis, skeleton.front, skeleton.anatomicalRight, -1f, bodyWidth);
+            ProtectArmChain(ref skeleton.rightElbow, ref skeleton.rightWrist, skeleton.rightShoulder, skeleton.pelvis, skeleton.front, skeleton.anatomicalRight, 1f, bodyWidth);
+            ProtectLegHint(ref skeleton.leftKnee, skeleton.leftHip, skeleton.pelvis, skeleton.front, skeleton.anatomicalRight, -1f, bodyWidth);
+            ProtectLegHint(ref skeleton.rightKnee, skeleton.rightHip, skeleton.pelvis, skeleton.front, skeleton.anatomicalRight, 1f, bodyWidth);
+
+            skeleton.valid = true;
+            return skeleton;
+        }
+
+        private void ProtectArmChain(ref Vector3 elbow, ref Vector3 wrist, Vector3 shoulder, Vector3 pelvis,
+                                     Vector3 front, Vector3 right, float sideSign, float bodyWidth)
+        {
+            float minForward = Mathf.Max(minArmForwardOffset, bodyWidth * 0.18f);
+            float minSide = bodyWidth * 0.12f;
+            PushPointOutsideTorso(ref elbow, shoulder, pelvis, front, right, sideSign, minForward, minSide);
+            PushPointOutsideTorso(ref wrist, shoulder, pelvis, front, right, sideSign, minForward * 1.1f, minSide);
+        }
+
+        private void ProtectLegHint(ref Vector3 knee, Vector3 hip, Vector3 pelvis, Vector3 front, Vector3 right, float sideSign, float bodyWidth)
+        {
+            float minSide = bodyWidth * 0.08f;
+            PushPointOutsideTorso(ref knee, hip, pelvis, front, right, sideSign, 0.02f, minSide);
+        }
+
+        private void PushPointOutsideTorso(ref Vector3 point, Vector3 anchor, Vector3 pelvis,
+                                           Vector3 front, Vector3 right, float sideSign,
+                                           float minForward, float minSide)
+        {
+            if (front.sqrMagnitude < 0.001f || right.sqrMagnitude < 0.001f)
+                return;
+
+            Vector3 frontDir = front.normalized;
+            Vector3 rightDir = right.normalized;
+            float forward = Vector3.Dot(point - anchor, frontDir);
+            if (forward < minForward)
+                point += frontDir * (minForward - forward);
+
+            float lateral = Vector3.Dot(point - pelvis, rightDir) * sideSign;
+            if (lateral < minSide)
+                point += rightDir * sideSign * (minSide - lateral);
+        }
+
         private void LogRetargetDiagnosticsOnce(PoseFrame frame, PoseDataLoader loader, int frameIndex)
         {
             if (!logRetargetDiagnostics || diagnosticsLogged || frame == null || loader == null) return;
@@ -810,8 +951,12 @@ namespace GolfSimulation.Core
             float leftFootIndexVis = loader.GetLandmarkVisibility(frame, "left_foot_index");
             float rightFootIndexVis = loader.GetLandmarkVisibility(frame, "right_foot_index");
 
-            Vector3 leftWristWorld = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_wrist"));
-            Vector3 rightWristWorld = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_wrist"));
+            Vector3 leftWristWorld = currentSkeleton.valid
+                ? AvatarSpacePointToWorld(currentSkeleton.leftWrist)
+                : DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_wrist"));
+            Vector3 rightWristWorld = currentSkeleton.valid
+                ? AvatarSpacePointToWorld(currentSkeleton.rightWrist)
+                : DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_wrist"));
             Vector3 bodyFront = GetAnatomicalFrontDirection();
             float leftArmForward = Vector3.Dot(leftWristWorld - lastLeftShoulderWorld, bodyFront);
             float rightArmForward = Vector3.Dot(rightWristWorld - lastRightShoulderWorld, bodyFront);
@@ -907,19 +1052,23 @@ namespace GolfSimulation.Core
 
         private void ApplyConstrainedLegIK(PoseFrame frame, PoseDataLoader loader)
         {
-            Vector3 leftTarget = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_ankle"));
-            Vector3 rightTarget = DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_ankle"));
+            Vector3 leftTarget = currentSkeleton.valid
+                ? AvatarSpacePointToWorld(currentSkeleton.leftAnkle)
+                : DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "left_ankle"));
+            Vector3 rightTarget = currentSkeleton.valid
+                ? AvatarSpacePointToWorld(currentSkeleton.rightAnkle)
+                : DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, "right_ankle"));
 
             ApplyFootLock(ref leftTarget, addressLeftFootWorld);
             ApplyFootLock(ref rightTarget, addressRightFootWorld);
 
             Vector3 leftHint = ResolveLegHint(
                 leftUpperLegCache.bone,
-                loader.GetLandmarkPosition(frame, "left_knee"),
+                currentSkeleton.valid ? currentSkeleton.leftKnee : DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_knee")),
                 true);
             Vector3 rightHint = ResolveLegHint(
                 rightUpperLegCache.bone,
-                loader.GetLandmarkPosition(frame, "right_knee"),
+                currentSkeleton.valid ? currentSkeleton.rightKnee : DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_knee")),
                 false);
 
             SolveLegFromTarget(leftUpperLegCache.bone, leftLowerLegCache.bone, leftFootCache.bone, leftTarget, leftHint);
@@ -929,9 +1078,9 @@ namespace GolfSimulation.Core
             {
                 ApplyFootOrientation(
                     ref leftFootCache,
-                    DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_ankle")),
-                    DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_heel")),
-                    DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_foot_index")),
+                    currentSkeleton.valid ? currentSkeleton.leftAnkle : DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_ankle")),
+                    currentSkeleton.valid ? currentSkeleton.leftHeel : DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_heel")),
+                    currentSkeleton.valid ? currentSkeleton.leftToe : DataToAvatarSpace(loader.GetLandmarkPosition(frame, "left_foot_index")),
                     leftFootForwardSign);
             }
 
@@ -939,9 +1088,9 @@ namespace GolfSimulation.Core
             {
                 ApplyFootOrientation(
                     ref rightFootCache,
-                    DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_ankle")),
-                    DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_heel")),
-                    DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_foot_index")),
+                    currentSkeleton.valid ? currentSkeleton.rightAnkle : DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_ankle")),
+                    currentSkeleton.valid ? currentSkeleton.rightHeel : DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_heel")),
+                    currentSkeleton.valid ? currentSkeleton.rightToe : DataToAvatarSpace(loader.GetLandmarkPosition(frame, "right_foot_index")),
                     rightFootForwardSign);
             }
 
@@ -964,12 +1113,53 @@ namespace GolfSimulation.Core
         private Vector3 DataJointToWorldFromAnchor(PoseFrame frame, PoseDataLoader loader,
                                                    string jointName, string anchorName, Transform anchorBone)
         {
+            if (currentSkeleton.valid &&
+                TryGetSkeletonJoint(jointName, out Vector3 skeletonJoint) &&
+                TryGetSkeletonJoint(anchorName, out Vector3 skeletonAnchor))
+            {
+                if (anchorBone == null)
+                    return AvatarSpacePointToWorld(skeletonJoint);
+
+                return anchorBone.position + (skeletonJoint - skeletonAnchor) * sourceToAvatarScale * positionScale;
+            }
+
             if (anchorBone == null)
                 return DataPointToAvatarWorld(loader.GetLandmarkPosition(frame, jointName));
 
             Vector3 joint = DataToAvatarSpace(loader.GetLandmarkPosition(frame, jointName));
             Vector3 anchor = DataToAvatarSpace(loader.GetLandmarkPosition(frame, anchorName));
             return anchorBone.position + (joint - anchor) * sourceToAvatarScale * positionScale;
+        }
+
+        private bool TryGetSkeletonJoint(string jointName, out Vector3 value)
+        {
+            value = Vector3.zero;
+            if (!currentSkeleton.valid)
+                return false;
+
+            switch (jointName)
+            {
+                case "left_shoulder": value = currentSkeleton.leftShoulder; return true;
+                case "right_shoulder": value = currentSkeleton.rightShoulder; return true;
+                case "left_hip": value = currentSkeleton.leftHip; return true;
+                case "right_hip": value = currentSkeleton.rightHip; return true;
+                case "left_elbow": value = currentSkeleton.leftElbow; return true;
+                case "right_elbow": value = currentSkeleton.rightElbow; return true;
+                case "left_wrist": value = currentSkeleton.leftWrist; return true;
+                case "right_wrist": value = currentSkeleton.rightWrist; return true;
+                case "left_knee": value = currentSkeleton.leftKnee; return true;
+                case "right_knee": value = currentSkeleton.rightKnee; return true;
+                case "left_ankle": value = currentSkeleton.leftAnkle; return true;
+                case "right_ankle": value = currentSkeleton.rightAnkle; return true;
+                case "left_heel": value = currentSkeleton.leftHeel; return true;
+                case "right_heel": value = currentSkeleton.rightHeel; return true;
+                case "left_foot_index": value = currentSkeleton.leftToe; return true;
+                case "right_foot_index": value = currentSkeleton.rightToe; return true;
+                case "nose": value = currentSkeleton.nose; return true;
+                case "left_ear": value = currentSkeleton.leftEar; return true;
+                case "right_ear": value = currentSkeleton.rightEar; return true;
+                default: return false;
+            }
         }
 
         private void SolveArmFromTarget(Transform upper, Transform lower, Transform hand,
@@ -980,6 +1170,7 @@ namespace GolfSimulation.Core
             Quaternion fkUpper = upper.rotation;
             Quaternion fkLower = lower.rotation;
 
+            ClampTargetToChain(ref target, upper, lower, hand);
             TwoBoneIKSolver.Solve(upper, lower, hand, target, hint);
 
             if (constrainedArmIKWeight < 0.999f)
@@ -997,6 +1188,7 @@ namespace GolfSimulation.Core
             Quaternion fkUpper = upper.rotation;
             Quaternion fkLower = lower.rotation;
 
+            ClampTargetToChain(ref target, upper, lower, foot);
             TwoBoneIKSolver.Solve(upper, lower, foot, target, hint);
 
             if (constrainedLegIKWeight < 0.999f)
@@ -1004,6 +1196,25 @@ namespace GolfSimulation.Core
                 upper.rotation = Quaternion.Slerp(fkUpper, upper.rotation, constrainedLegIKWeight);
                 lower.rotation = Quaternion.Slerp(fkLower, lower.rotation, constrainedLegIKWeight);
             }
+        }
+
+        private void ClampTargetToChain(ref Vector3 target, Transform root, Transform mid, Transform tip)
+        {
+            if (root == null || mid == null || tip == null)
+                return;
+
+            float upperLen = Vector3.Distance(root.position, mid.position);
+            float lowerLen = Vector3.Distance(mid.position, tip.position);
+            float maxReach = Mathf.Max(0.001f, upperLen + lowerLen - 0.002f);
+            float minReach = Mathf.Max(0.001f, Mathf.Abs(upperLen - lowerLen) + 0.002f);
+            Vector3 delta = target - root.position;
+            float distance = delta.magnitude;
+            if (distance < 0.0001f)
+                return;
+
+            float clamped = Mathf.Clamp(distance, minReach, maxReach);
+            if (Mathf.Abs(clamped - distance) > 0.0001f)
+                target = root.position + delta.normalized * clamped;
         }
 
         private void ApplyFootLock(ref Vector3 target, Vector3 addressTarget)
@@ -1192,9 +1403,9 @@ namespace GolfSimulation.Core
             return Vector3.Lerp(preferredHint, dataHint, elbowHintDataWeight);
         }
 
-        private Vector3 ResolveLegHint(Transform upper, Vector3 kneeData, bool isLeft)
+        private Vector3 ResolveLegHint(Transform upper, Vector3 kneeAvatarSpace, bool isLeft)
         {
-            Vector3 dataHint = DataPointToAvatarWorld(kneeData);
+            Vector3 dataHint = AvatarSpacePointToWorld(kneeAvatarSpace);
             if (upper == null) return dataHint;
 
             Vector3 bodyFront = GetAnatomicalFrontDirection();

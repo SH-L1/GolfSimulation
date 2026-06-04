@@ -633,10 +633,10 @@ MonoBehaviour:
   upperChestWeight: 0.85
   ikController: {fileID: 0}
   enableFallbackIK: 0
-  dataAxisSigns: {x: -1, y: 1, z: -1}
+  dataAxisSigns: {x: -1, y: 1, z: 1}
   enableBodyFrameCalibration: 1
   preserveBodySideContinuity: 1
-  useBackFacingBodyFrame: 1
+  useBackFacingBodyFrame: 0
   preserveGolfForwardBend: 1
   minAddressForwardBend: 22
   maxAddressForwardBend: 38
